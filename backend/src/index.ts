@@ -35,6 +35,7 @@ app.use(cors())
 app.use(express.json())
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 500 }))
 app.use((_req, res, next) => {
+  res.set('Cache-Control', 'no-store')
   const jsonOriginal = res.json.bind(res)
   res.json = (body: unknown) => jsonOriginal(normalizarRespuesta(body))
   next()
