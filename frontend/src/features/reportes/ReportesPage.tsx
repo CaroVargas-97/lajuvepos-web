@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { formatMoney, todayISO } from '../../lib/format'
 import { api } from '../../lib/api'
 
@@ -12,6 +12,17 @@ interface FilaProducto {
 }
 
 type Tab = 'rentabilidad' | 'canal' | 'medioPago' | 'tarjeta' | 'categoria'
+
+const CANAL_LABEL: Record<string, string> = {
+  mostrador: 'Mostrador',
+  pedidos_ya: 'PedidosYa',
+  rappi: 'Rappi'
+}
+
+function porcentaje(parte: number, total: number) {
+  if (!total) return '0%'
+  return `${Math.round((parte / total) * 100)}%`
+}
 
 export function ReportesPage() {
   const [tab, setTab] = useState<Tab>('rentabilidad')
@@ -46,6 +57,11 @@ export function ReportesPage() {
     cargar()
   }, [])
 
+  const cantidadVentas = useMemo(() => porCanal.reduce((acc, c) => acc + c.cantidad_ventas, 0), [porCanal])
+  const ticketPromedio = cantidadVentas > 0 ? totales.total_vendido / cantidadVentas : 0
+  const margen = totales.total_vendido > 0 ? (totales.ganancia / totales.total_vendido) * 100 : 0
+  const productoTop = useMemo(() => filas.slice().sort((a, b) => b.total_vendido - a.total_vendido)[0], [filas])
+
   return (
     <div className="panel">
       <h2>Informes</h2>
@@ -64,7 +80,35 @@ export function ReportesPage() {
         </button>
       </div>
 
-      <div className="form-inline">
+      <section className="comprobante-kpis">
+        <div className="kpi">
+          <span>Total vendido</span>
+          <strong>{formatMoney(totales.total_vendido)}</strong>
+        </div>
+        <div className="kpi">
+          <span>Ganancia</span>
+          <strong>{formatMoney(totales.ganancia)}</strong>
+        </div>
+        <div className="kpi">
+          <span>Margen</span>
+          <strong>{margen.toFixed(1)}%</strong>
+        </div>
+        <div className="kpi">
+          <span>Cantidad de ventas</span>
+          <strong>{cantidadVentas}</strong>
+        </div>
+        <div className="kpi">
+          <span>Ticket promedio</span>
+          <strong>{formatMoney(ticketPromedio)}</strong>
+        </div>
+      </section>
+      {productoTop && (
+        <p className="ayuda">
+          Producto más vendido del período: <strong>{productoTop.nombre}</strong> ({formatMoney(productoTop.total_vendido)})
+        </p>
+      )}
+
+      <div className="caja-tabs">
         <button className={tab === 'rentabilidad' ? 'primary' : ''} onClick={() => setTab('rentabilidad')}>
           Rentabilidad
         </button>
@@ -83,29 +127,17 @@ export function ReportesPage() {
       </div>
 
       {tab === 'rentabilidad' && (
-        <>
-          <div className="totales-row">
-            <div>
-              <span>Total vendido</span>
-              <strong>{formatMoney(totales.total_vendido)}</strong>
-            </div>
-            <div>
-              <span>Costo total</span>
-              <strong>{formatMoney(totales.costo_total)}</strong>
-            </div>
-            <div>
-              <span>Ganancia</span>
-              <strong>{formatMoney(totales.ganancia)}</strong>
-            </div>
-          </div>
+        <div className="caja-tab-panel">
           <table>
             <thead>
               <tr>
                 <th>Producto</th>
                 <th>Cantidad</th>
                 <th>Total vendido</th>
+                <th>% del total</th>
                 <th>Costo</th>
                 <th>Ganancia</th>
+                <th>Margen</th>
               </tr>
             </thead>
             <tbody>
@@ -114,109 +146,140 @@ export function ReportesPage() {
                   <td>{f.nombre}</td>
                   <td>{f.cantidad_vendida}</td>
                   <td>{formatMoney(f.total_vendido)}</td>
+                  <td>{porcentaje(f.total_vendido, totales.total_vendido)}</td>
                   <td>{formatMoney(f.costo_total)}</td>
                   <td>{formatMoney(f.ganancia)}</td>
+                  <td>{f.total_vendido ? `${((f.ganancia / f.total_vendido) * 100).toFixed(0)}%` : '-'}</td>
                 </tr>
               ))}
               {filas.length === 0 && (
                 <tr>
-                  <td colSpan={5}>No hay ventas en el período seleccionado.</td>
+                  <td colSpan={7}>No hay ventas en el período seleccionado.</td>
                 </tr>
               )}
             </tbody>
           </table>
-        </>
+        </div>
       )}
 
       {tab === 'canal' && (
-        <table>
-          <thead>
-            <tr>
-              <th>Canal</th>
-              <th>Cantidad de ventas</th>
-              <th>Total vendido</th>
-            </tr>
-          </thead>
-          <tbody>
-            {porCanal.map((c) => (
-              <tr key={c.canal}>
-                <td>{c.canal}</td>
-                <td>{c.cantidad_ventas}</td>
-                <td>{formatMoney(c.total_vendido)}</td>
+        <div className="caja-tab-panel">
+          <table>
+            <thead>
+              <tr>
+                <th>Canal</th>
+                <th>Cantidad de ventas</th>
+                <th>Total vendido</th>
+                <th>% del total</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {porCanal.map((c) => (
+                <tr key={c.canal}>
+                  <td>{CANAL_LABEL[c.canal] ?? c.canal}</td>
+                  <td>{c.cantidad_ventas}</td>
+                  <td>{formatMoney(c.total_vendido)}</td>
+                  <td>{porcentaje(c.total_vendido, totales.total_vendido)}</td>
+                </tr>
+              ))}
+              {porCanal.length === 0 && (
+                <tr>
+                  <td colSpan={4}>Sin ventas en el período.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {tab === 'medioPago' && (
-        <table>
-          <thead>
-            <tr>
-              <th>Medio de pago</th>
-              <th>Cantidad de pagos</th>
-              <th>Total vendido</th>
-            </tr>
-          </thead>
-          <tbody>
-            {porMedioPago.map((m) => (
-              <tr key={m.medio_pago}>
-                <td>{m.medio_pago}</td>
-                <td>{m.cantidad_pagos}</td>
-                <td>{formatMoney(m.total_vendido)}</td>
+        <div className="caja-tab-panel">
+          <table>
+            <thead>
+              <tr>
+                <th>Medio de pago</th>
+                <th>Cantidad de pagos</th>
+                <th>Total vendido</th>
+                <th>% del total</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {porMedioPago.map((m) => (
+                <tr key={m.medio_pago}>
+                  <td>{m.medio_pago}</td>
+                  <td>{m.cantidad_pagos}</td>
+                  <td>{formatMoney(m.total_vendido)}</td>
+                  <td>{porcentaje(m.total_vendido, totales.total_vendido)}</td>
+                </tr>
+              ))}
+              {porMedioPago.length === 0 && (
+                <tr>
+                  <td colSpan={4}>Sin ventas en el período.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {tab === 'tarjeta' && (
-        <table>
-          <thead>
-            <tr>
-              <th>Medio de pago</th>
-              <th>Tarjeta / billetera</th>
-              <th>Cantidad de pagos</th>
-              <th>Total vendido</th>
-            </tr>
-          </thead>
-          <tbody>
-            {porTarjeta.map((t, idx) => (
-              <tr key={idx}>
-                <td>{t.medio_pago}</td>
-                <td>{t.tarjeta}</td>
-                <td>{t.cantidad_pagos}</td>
-                <td>{formatMoney(t.total_vendido)}</td>
-              </tr>
-            ))}
-            {porTarjeta.length === 0 && (
+        <div className="caja-tab-panel">
+          <table>
+            <thead>
               <tr>
-                <td colSpan={4}>No hay pagos con tarjeta en el período seleccionado.</td>
+                <th>Medio de pago</th>
+                <th>Tarjeta / billetera</th>
+                <th>Cantidad de pagos</th>
+                <th>Total vendido</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {porTarjeta.map((t, idx) => (
+                <tr key={idx}>
+                  <td>{t.medio_pago}</td>
+                  <td>{t.tarjeta}</td>
+                  <td>{t.cantidad_pagos}</td>
+                  <td>{formatMoney(t.total_vendido)}</td>
+                </tr>
+              ))}
+              {porTarjeta.length === 0 && (
+                <tr>
+                  <td colSpan={4}>No hay pagos con tarjeta en el período seleccionado.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {tab === 'categoria' && (
-        <table>
-          <thead>
-            <tr>
-              <th>Categoría</th>
-              <th>Cantidad vendida</th>
-              <th>Total vendido</th>
-            </tr>
-          </thead>
-          <tbody>
-            {porCategoria.map((c) => (
-              <tr key={c.categoria}>
-                <td>{c.categoria}</td>
-                <td>{c.cantidad_vendida}</td>
-                <td>{formatMoney(c.total_vendido)}</td>
+        <div className="caja-tab-panel">
+          <table>
+            <thead>
+              <tr>
+                <th>Categoría</th>
+                <th>Cantidad vendida</th>
+                <th>Total vendido</th>
+                <th>% del total</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {porCategoria.map((c) => (
+                <tr key={c.categoria}>
+                  <td>{c.categoria}</td>
+                  <td>{c.cantidad_vendida}</td>
+                  <td>{formatMoney(c.total_vendido)}</td>
+                  <td>{porcentaje(c.total_vendido, totales.total_vendido)}</td>
+                </tr>
+              ))}
+              {porCategoria.length === 0 && (
+                <tr>
+                  <td colSpan={4}>Sin ventas en el período.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   )

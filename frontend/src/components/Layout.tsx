@@ -18,9 +18,8 @@ export function Layout() {
           <NavLink to="/cierres">Cierres</NavLink>
           {usuario?.rol === 'admin' && <NavLink to="/stock">Stock</NavLink>}
           {usuario?.rol === 'admin' && <NavLink to="/clientes">Clientes</NavLink>}
-          {usuario?.rol === 'admin' && <NavLink to="/motivos-caja">Motivos de caja</NavLink>}
-          {usuario?.rol === 'admin' && <NavLink to="/usuarios">Usuarios</NavLink>}
           {usuario?.rol === 'admin' && <NavLink to="/reportes">Reportes</NavLink>}
+          {usuario?.rol === 'admin' && <NavLink to="/configuracion">Configuración</NavLink>}
         </nav>
         <div className="sidebar-footer">
           <p>{usuario?.nombre}</p>

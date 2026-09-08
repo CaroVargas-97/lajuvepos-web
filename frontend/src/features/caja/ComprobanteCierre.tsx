@@ -75,7 +75,7 @@ export function ComprobanteCierre({ cajaId, onClose }: { cajaId: number; onClose
         {!data && <p>Cargando comprobante...</p>}
 
         {data && (
-          <div id="comprobante-cierre" className="comprobante">
+          <div className="comprobante imprimible">
             <header className="comprobante-header">
               <h2>LaJuvePOS</h2>
               <h3>Comprobante de cierre de caja #{data.caja.id}</h3>

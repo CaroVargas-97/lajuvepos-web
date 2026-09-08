@@ -3,6 +3,7 @@ import { useAuth } from '../auth/AuthContext'
 import type { Cliente } from '../../lib/types'
 import { formatDateTime, formatMoney } from '../../lib/format'
 import { api } from '../../lib/api'
+import { NotaCreditoImprimible } from './NotaCreditoImprimible'
 
 interface NotaCredito {
   id: number
@@ -20,6 +21,7 @@ export function ClientesPage() {
   const [form, setForm] = useState({ nombre: '', telefono: '' })
   const [notaForm, setNotaForm] = useState({ clienteId: '', monto: '', motivo: '' })
   const [error, setError] = useState<string | null>(null)
+  const [notaImprimir, setNotaImprimir] = useState<NotaCredito | null>(null)
 
   async function cargar() {
     const [cli, nc] = await Promise.all([api.clientes.listar(), api.notasCredito.listar()])
@@ -128,6 +130,7 @@ export function ClientesPage() {
             <th>Cliente</th>
             <th>Monto</th>
             <th>Motivo</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -137,15 +140,22 @@ export function ClientesPage() {
               <td>{n.cliente_nombre}</td>
               <td>{formatMoney(n.monto)}</td>
               <td>{n.motivo}</td>
+              <td>
+                <button className="link" onClick={() => setNotaImprimir(n)}>
+                  imprimir
+                </button>
+              </td>
             </tr>
           ))}
           {notas.length === 0 && (
             <tr>
-              <td colSpan={4}>No hay notas de crédito emitidas.</td>
+              <td colSpan={5}>No hay notas de crédito emitidas.</td>
             </tr>
           )}
         </tbody>
       </table>
+
+      {notaImprimir && <NotaCreditoImprimible nota={notaImprimir} onClose={() => setNotaImprimir(null)} />}
     </div>
   )
 }
