@@ -12,14 +12,18 @@ import { router as motivosCajaRouter } from './routes/motivosCaja.js'
 import { router as configuracionRouter } from './routes/configuracion.js'
 import { router as sistemaRouter } from './routes/sistema.js'
 
-function convertirDecimales(valor: any): any {
+function camelASnake(clave: string): string {
+  return clave.replace(/([A-Z])/g, '_$1').toLowerCase()
+}
+
+function normalizarRespuesta(valor: any): any {
   if (valor === null || valor === undefined) return valor
   if (typeof valor === 'object') {
     if (valor instanceof Date) return valor
     if (typeof valor.toNumber === 'function') return valor.toNumber()
-    if (Array.isArray(valor)) return valor.map(convertirDecimales)
+    if (Array.isArray(valor)) return valor.map(normalizarRespuesta)
     const resultado: Record<string, unknown> = {}
-    for (const clave of Object.keys(valor)) resultado[clave] = convertirDecimales(valor[clave])
+    for (const clave of Object.keys(valor)) resultado[camelASnake(clave)] = normalizarRespuesta(valor[clave])
     return resultado
   }
   return valor
@@ -32,7 +36,7 @@ app.use(express.json())
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 500 }))
 app.use((_req, res, next) => {
   const jsonOriginal = res.json.bind(res)
-  res.json = (body: unknown) => jsonOriginal(convertirDecimales(body))
+  res.json = (body: unknown) => jsonOriginal(normalizarRespuesta(body))
   next()
 })
 
