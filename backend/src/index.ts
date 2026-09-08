@@ -16,7 +16,7 @@ function convertirDecimales(valor: any): any {
   if (valor === null || valor === undefined) return valor
   if (typeof valor === 'object') {
     if (valor instanceof Date) return valor
-    if (typeof valor.toNumber === 'function' && valor.constructor?.name === 'Decimal') return valor.toNumber()
+    if (typeof valor.toNumber === 'function') return valor.toNumber()
     if (Array.isArray(valor)) return valor.map(convertirDecimales)
     const resultado: Record<string, unknown> = {}
     for (const clave of Object.keys(valor)) resultado[clave] = convertirDecimales(valor[clave])
