@@ -399,9 +399,16 @@ td {
 
 .caja-tabs button {
   background: white;
+  color: var(--text);
   border: 1px solid var(--border);
   padding: 0.5rem 1rem;
   border-radius: 8px;
+}
+
+.caja-tabs button.primary {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
 }
 
 .caja-tab-panel {
