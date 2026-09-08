@@ -1,0 +1,246 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Rol {
+  admin
+  vendedor
+}
+
+enum TipoMovimientoStock {
+  entrada
+  salida
+  ajuste
+  venta
+  nota_credito
+}
+
+enum EstadoCaja {
+  abierta
+  cerrada
+}
+
+enum Canal {
+  mostrador
+  pedidos_ya
+  rappi
+}
+
+enum MedioPago {
+  efectivo
+  debito
+  credito
+  qr
+  cuenta_corriente
+  otro
+  mixto
+}
+
+enum TipoMovimientoCuentaCorriente {
+  nota_credito
+  uso_en_venta
+  ajuste
+}
+
+enum TipoMovimientoCaja {
+  ingreso
+  egreso
+}
+
+model Usuario {
+  id                Int      @id @default(autoincrement())
+  nombre            String
+  pin               String   @unique
+  rol               Rol
+  activo            Boolean  @default(true)
+  creadoEn          DateTime @default(now()) @map("creado_en")
+
+  ventasComoVendedor         Venta[]              @relation("VentaUsuario")
+  cajasAbiertas              Caja[]               @relation("CajaUsuarioApertura")
+  cajasCerradas              Caja[]               @relation("CajaUsuarioCierre")
+  movimientosStock           MovimientoStock[]
+  movimientosCaja            MovimientoCaja[]
+  notasCredito               NotaCredito[]
+  cuentaCorrienteMovimientos CuentaCorrienteMovimiento[]
+
+  @@map("usuarios")
+}
+
+model Producto {
+  id           Int      @id @default(autoincrement())
+  nombre       String
+  categoria    String?
+  precioVenta  Decimal  @map("precio_venta") @db.Decimal(12, 2)
+  costo        Decimal  @db.Decimal(12, 2) @default(0)
+  unidad       String   @default("unidad")
+  stockActual  Decimal  @map("stock_actual") @db.Decimal(12, 3) @default(0)
+  stockMinimo  Decimal  @map("stock_minimo") @db.Decimal(12, 3) @default(0)
+  activo       Boolean  @default(true)
+
+  movimientosStock MovimientoStock[]
+  ventaItems       VentaItem[]
+
+  @@map("productos")
+}
+
+model MovimientoStock {
+  id          Int                 @id @default(autoincrement())
+  producto    Producto            @relation(fields: [productoId], references: [id])
+  productoId  Int                 @map("producto_id")
+  tipo        TipoMovimientoStock
+  cantidad    Decimal             @db.Decimal(12, 3)
+  fecha       DateTime            @default(now())
+  usuario     Usuario             @relation(fields: [usuarioId], references: [id])
+  usuarioId   Int                 @map("usuario_id")
+  motivo      String?
+
+  @@map("movimientos_stock")
+}
+
+model Caja {
+  id                    Int         @id @default(autoincrement())
+  fechaApertura         DateTime    @default(now()) @map("fecha_apertura")
+  fechaCierre           DateTime?   @map("fecha_cierre")
+  montoInicial          Decimal     @map("monto_inicial") @db.Decimal(12, 2)
+  montoFinalDeclarado   Decimal?    @map("monto_final_declarado") @db.Decimal(12, 2)
+  usuario               Usuario     @relation("CajaUsuarioApertura", fields: [usuarioId], references: [id])
+  usuarioId             Int         @map("usuario_id")
+  usuarioCierre         Usuario?    @relation("CajaUsuarioCierre", fields: [usuarioCierreId], references: [id])
+  usuarioCierreId       Int?        @map("usuario_cierre_id")
+  comentario            String?
+  estado                EstadoCaja  @default(abierta)
+
+  ventas           Venta[]
+  movimientosCaja  MovimientoCaja[]
+
+  @@map("caja")
+}
+
+model Cliente {
+  id                    Int      @id @default(autoincrement())
+  nombre                String
+  telefono              String?
+  saldoCuentaCorriente  Decimal  @map("saldo_cuenta_corriente") @db.Decimal(12, 2) @default(0)
+  activo                Boolean  @default(true)
+
+  ventas                     Venta[]
+  notasCredito               NotaCredito[]
+  cuentaCorrienteMovimientos CuentaCorrienteMovimiento[]
+
+  @@map("clientes")
+}
+
+model Venta {
+  id         Int       @id @default(autoincrement())
+  caja       Caja      @relation(fields: [cajaId], references: [id])
+  cajaId     Int       @map("caja_id")
+  fecha      DateTime  @default(now())
+  usuario    Usuario   @relation("VentaUsuario", fields: [usuarioId], references: [id])
+  usuarioId  Int       @map("usuario_id")
+  cliente    Cliente?  @relation(fields: [clienteId], references: [id])
+  clienteId  Int?      @map("cliente_id")
+  canal      Canal     @default(mostrador)
+  descuento  Decimal   @db.Decimal(12, 2) @default(0)
+  total      Decimal   @db.Decimal(12, 2)
+  medioPago  MedioPago @map("medio_pago")
+  anulada    Boolean   @default(false)
+
+  items         VentaItem[]
+  pagos         VentaPago[]
+  notasCredito  NotaCredito[]
+
+  @@map("ventas")
+}
+
+model VentaPago {
+  id         Int        @id @default(autoincrement())
+  venta      Venta      @relation(fields: [ventaId], references: [id])
+  ventaId    Int        @map("venta_id")
+  medioPago  MedioPago  @map("medio_pago")
+  tarjeta    String?
+  monto      Decimal    @db.Decimal(12, 2)
+
+  @@map("venta_pagos")
+}
+
+model VentaItem {
+  id             Int      @id @default(autoincrement())
+  venta          Venta    @relation(fields: [ventaId], references: [id])
+  ventaId        Int      @map("venta_id")
+  producto       Producto @relation(fields: [productoId], references: [id])
+  productoId     Int      @map("producto_id")
+  cantidad       Decimal  @db.Decimal(12, 3)
+  precioUnitario Decimal  @map("precio_unitario") @db.Decimal(12, 2)
+  costoUnitario  Decimal  @map("costo_unitario") @db.Decimal(12, 2) @default(0)
+  subtotal       Decimal  @db.Decimal(12, 2)
+
+  @@map("venta_items")
+}
+
+model NotaCredito {
+  id         Int       @id @default(autoincrement())
+  venta      Venta?    @relation(fields: [ventaId], references: [id])
+  ventaId    Int?      @map("venta_id")
+  cliente    Cliente   @relation(fields: [clienteId], references: [id])
+  clienteId  Int       @map("cliente_id")
+  monto      Decimal   @db.Decimal(12, 2)
+  motivo     String?
+  fecha      DateTime  @default(now())
+  usuario    Usuario   @relation(fields: [usuarioId], references: [id])
+  usuarioId  Int       @map("usuario_id")
+
+  @@map("notas_credito")
+}
+
+model CuentaCorrienteMovimiento {
+  id         Int                            @id @default(autoincrement())
+  cliente    Cliente                        @relation(fields: [clienteId], references: [id])
+  clienteId  Int                            @map("cliente_id")
+  tipo       TipoMovimientoCuentaCorriente
+  monto      Decimal                        @db.Decimal(12, 2)
+  referencia String?
+  fecha      DateTime                       @default(now())
+  usuario    Usuario                        @relation(fields: [usuarioId], references: [id])
+  usuarioId  Int                            @map("usuario_id")
+
+  @@map("cuenta_corriente_movimientos")
+}
+
+model MotivoCaja {
+  id      Int                 @id @default(autoincrement())
+  nombre  String              @unique
+  tipo    TipoMovimientoCaja
+  activo  Boolean             @default(true)
+
+  movimientosCaja MovimientoCaja[]
+
+  @@map("motivos_caja")
+}
+
+model MovimientoCaja {
+  id         Int                 @id @default(autoincrement())
+  caja       Caja                @relation(fields: [cajaId], references: [id])
+  cajaId     Int                 @map("caja_id")
+  tipo       TipoMovimientoCaja
+  motivo     MotivoCaja?         @relation(fields: [motivoId], references: [id])
+  motivoId   Int?                @map("motivo_id")
+  concepto   String
+  monto      Decimal             @db.Decimal(12, 2)
+  fecha      DateTime            @default(now())
+  usuario    Usuario             @relation(fields: [usuarioId], references: [id])
+  usuarioId  Int                 @map("usuario_id")
+
+  @@map("movimientos_caja")
+}
+
+model Configuracion {
+  clave String @id
+  valor String
+
+  @@map("configuracion")
+}
