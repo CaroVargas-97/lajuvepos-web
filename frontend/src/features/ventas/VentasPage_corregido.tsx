@@ -1,365 +1,656 @@
-﻿import { useEffect, useMemo, useState } from 'react'
-import { useAuth } from '../auth/AuthContext'
-import type { Canal, Caja, CarritoItem, Cliente, MedioPago, Producto } from '../../lib/types'
-import { formatMoney } from '../../lib/format'
-import { api } from '../../lib/api'
-
-const MEDIOS_PAGO: { value: MedioPago; label: string }[] = [
-  { value: 'efectivo', label: 'Efectivo' },
-  { value: 'debito', label: 'Débito' },
-  { value: 'credito', label: 'Crédito' },
-  { value: 'qr', label: 'QR' },
-  { value: 'cuenta_corriente', label: 'Cuenta corriente' }
-]
-
-const CANALES: { value: Canal; label: string }[] = [
-  { value: 'mostrador', label: 'Mostrador' },
-  { value: 'pedidos_ya', label: 'PedidosYa' },
-  { value: 'rappi', label: 'Rappi' }
-]
-
-const TARJETAS = ['Visa', 'Mastercard', 'Maestro', 'American Express', 'Cabal', 'Naranja X', 'Otra']
-const BILLETERAS_QR = ['Mercado Pago', 'MODO', 'Cuenta DNI', 'Otra']
-
-interface PagoForm {
-  medioPago: MedioPago
-  tarjeta: string
-  monto: string
+:root {
+  --bg: #faf6f0;
+  --panel: #ffffff;
+  --border: #e5ddd0;
+  --primary: #b5502f;
+  --primary-dark: #93401f;
+  --text: #2c241d;
+  --muted: #7a6f62;
+  --error: #c0392b;
+  --ok: #2f8a4b;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 
-function esConTarjeta(medioPago: MedioPago) {
-  return medioPago === 'debito' || medioPago === 'credito'
+* {
+  box-sizing: border-box;
 }
 
-function esConBilletera(medioPago: MedioPago) {
-  return medioPago === 'qr'
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
 }
 
-function esConProveedor(medioPago: MedioPago) {
-  return esConTarjeta(medioPago) || esConBilletera(medioPago)
+button {
+  cursor: pointer;
+  font-family: inherit;
 }
 
-export function VentasPage() {
-  const { usuario } = useAuth()
-  const [productos, setProductos] = useState<Producto[]>([])
-  const [clientes, setClientes] = useState<Cliente[]>([])
-  const [carrito, setCarrito] = useState<CarritoItem[]>([])
-  const [pagos, setPagos] = useState<PagoForm[]>([{ medioPago: 'efectivo', tarjeta: '', monto: '0' }])
-  const [canal, setCanal] = useState<Canal>('mostrador')
-  const [clienteId, setClienteId] = useState<number | ''>('')
-  const [caja, setCaja] = useState<Caja | null>(null)
-  const [mensaje, setMensaje] = useState<string | null>(null)
-  const [busqueda, setBusqueda] = useState('')
-  const [categoria, setCategoria] = useState<string>('todas')
-  const [descuento, setDescuento] = useState('0')
+input,
+select,
+textarea {
+  font-family: inherit;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: white;
+}
 
-  async function cargar() {
-    const [prods, cajaActual, cli] = await Promise.all([
-      api.productos.listar(),
-      api.caja.actual(),
-      api.clientes.listar()
-    ])
-    setProductos(prods.filter((p) => p.activo))
-    setCaja(cajaActual)
-    setClientes(cli)
+textarea {
+  resize: vertical;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.primary {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+
+.primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.link {
+  background: none;
+  border: none;
+  color: var(--primary);
+  text-decoration: underline;
+  padding: 0;
+  font-size: 0.85rem;
+}
+
+.error {
+  color: var(--error);
+}
+
+.ok {
+  color: var(--ok);
+}
+
+/* Login */
+.login-page {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 2.5rem;
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.login-card h1 {
+  margin: 0;
+  color: var(--primary);
+}
+
+.login-logo {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  align-self: center;
+  border-radius: 12px;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+}
+
+.sidebar-brand img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.sidebar-brand h1 {
+  color: var(--primary);
+  font-size: 1.2rem;
+  margin: 0;
+}
+
+.subtitle {
+  margin: -0.5rem 0 0.5rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.pin-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  margin: 0.5rem 0;
+}
+
+.pin-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--primary);
+  background: transparent;
+}
+
+.pin-dot.filled {
+  background: var(--primary);
+}
+
+.pin-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+}
+
+.pin-pad button {
+  font-size: 1.3rem;
+  padding: 0.9rem 0;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: white;
+}
+
+.pin-pad button:hover {
+  background: #f3ece2;
+}
+
+.pin-borrar {
+  color: var(--error);
+}
+
+/* Layout */
+.app-layout {
+  display: flex;
+  height: 100vh;
+}
+
+.sidebar {
+  width: 220px;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem 1rem;
+}
+
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.sidebar nav a {
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.sidebar nav a.active {
+  background: var(--primary);
+  color: white;
+}
+
+.sidebar-footer {
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+  font-size: 0.85rem;
+}
+
+.sidebar-footer p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.sidebar-footer small {
+  color: var(--muted);
+  text-transform: capitalize;
+}
+
+.content {
+  flex: 1;
+  padding: 2rem;
+  overflow: auto;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+/* Ventas */
+.ventas-layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.5rem;
+  height: 100%;
+}
+
+.busqueda {
+  width: 100%;
+  margin: 1rem 0;
+}
+
+.categorias-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.75rem 0 1.25rem;
+}
+
+.chip {
+  background: white;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.chip:hover {
+  background: #f3ece2;
+}
+
+.chip-activo {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.grupo-categoria {
+  margin-bottom: 1.5rem;
+}
+
+.grupo-titulo {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0;
+  color: var(--primary-dark);
+  font-size: 1rem;
+  border-bottom: 1px solid var(--border);
+  z-index: 1;
+}
+
+.grid-productos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.card-producto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: white;
+  text-align: left;
+}
+
+.card-producto:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.carrito-lista {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.carrito-lista li {
+  display: grid;
+  grid-template-columns: 1fr 60px 80px auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.carrito-lista input {
+  width: 100%;
+}
+
+.total-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 1.2rem;
+  margin: 1rem 0;
+}
+
+.subtotal-row {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin: 0.25rem 0 0;
+}
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.stock-bajo {
+  background: #fdecea;
+}
+
+.fila-clickeable {
+  cursor: pointer;
+}
+
+.fila-clickeable:hover {
+  background: #f7f1e8;
+}
+
+.fila-seleccionada {
+  background: #f3e5d8;
+}
+
+.ayuda {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: -0.25rem 0 0.75rem;
+}
+
+.detalle-venta {
+  margin: 0;
+  background: #faf6f0;
+}
+
+.detalle-venta th,
+.detalle-venta td {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.9rem;
+}
+
+.form-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+}
+
+.form-inline input,
+.form-inline select {
+  width: auto;
+}
+
+/* Caja */
+.caja-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 320px;
+}
+
+.cierre-resultado,
+.historial {
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}
+
+.caja-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.caja-tabs button {
+  background: white;
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+}
+
+.caja-tabs button.primary {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.caja-tab-panel {
+  padding-top: 1rem;
+}
+
+.resumen-vivo {
+  margin-top: 1.5rem;
+  background: #fbf3ea;
+  border: 1px solid var(--primary);
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.resumen-vivo h3 {
+  margin-top: 0;
+}
+
+.resumen-por-medio {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.totales-row {
+  display: flex;
+  gap: 2rem;
+  margin: 1rem 0;
+}
+
+.totales-row div {
+  display: flex;
+  flex-direction: column;
+}
+
+.totales-row span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.mensaje {
+  color: var(--primary-dark);
+}
+
+.pagos-box {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pagos-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.pago-linea {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.pago-linea select,
+.pago-linea input {
+  flex: 1 1 auto;
+  min-width: 90px;
+}
+
+.pagos-detalle {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+/* Modal */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 280px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* Comprobante de cierre */
+.comprobante-modal {
+  width: min(720px, 90vw);
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.comprobante-acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.comprobante-header {
+  text-align: center;
+  border-bottom: 2px solid var(--primary);
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+}
+
+.comprobante-header h2 {
+  margin: 0;
+  color: var(--primary);
+}
+
+.comprobante-header h3 {
+  margin: 0.25rem 0;
+}
+
+.comprobante-header p {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0.25rem 0 0;
+}
+
+.comprobante-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.kpi {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  text-align: center;
+}
+
+.kpi span {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.kpi strong {
+  font-size: 1.1rem;
+}
+
+.comprobante section {
+  margin-bottom: 1.25rem;
+}
+
+.comprobante section h4 {
+  margin: 0 0 0.4rem;
+  color: var(--primary-dark);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.25rem;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
   }
-
-  useEffect(() => {
-    cargar()
-  }, [])
-
-  const subtotalBruto = useMemo(() => carrito.reduce((acc, i) => acc + i.cantidad * i.producto.precio_venta, 0), [carrito])
-  const descuentoNum = Math.min(Number(descuento) || 0, subtotalBruto)
-  const total = Math.max(subtotalBruto - descuentoNum, 0)
-
-  const totalPagos = useMemo(() => pagos.reduce((acc, p) => acc + (Number(p.monto) || 0), 0), [pagos])
-  const restante = Math.round((total - totalPagos) * 100) / 100
-
-  useEffect(() => {
-    if (pagos.length === 1) {
-      setPagos([{ ...pagos[0], monto: total ? String(total) : '0' }])
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [total])
-
-  function actualizarPago(index: number, cambios: Partial<PagoForm>) {
-    setPagos((prev) => prev.map((p, i) => (i === index ? { ...p, ...cambios } : p)))
+  .imprimible,
+  .imprimible * {
+    visibility: visible;
   }
-
-  function agregarPago() {
-    setPagos((prev) => [...prev, { medioPago: 'efectivo', tarjeta: '', monto: restante > 0 ? String(restante) : '0' }])
+  .imprimible {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
   }
-
-  function quitarPago(index: number) {
-    setPagos((prev) => prev.filter((_, i) => i !== index))
+  .comprobante-acciones {
+    display: none;
   }
-
-  const usaCuentaCorriente = pagos.some((p) => p.medioPago === 'cuenta_corriente')
-
-  const categorias = useMemo(
-    () => ['todas', ...Array.from(new Set(productos.map((p) => p.categoria || 'Sin categoría')))],
-    [productos]
-  )
-
-  const productosFiltrados = productos.filter((p) => {
-    const coincideNombre = p.nombre.toLowerCase().includes(busqueda.toLowerCase())
-    const coincideCategoria = categoria === 'todas' || (p.categoria || 'Sin categoría') === categoria
-    return coincideNombre && coincideCategoria
-  })
-
-  const productosAgrupados = useMemo(() => {
-    const grupos = new Map<string, Producto[]>()
-    for (const p of productosFiltrados) {
-      const cat = p.categoria || 'Sin categoría'
-      if (!grupos.has(cat)) grupos.set(cat, [])
-      grupos.get(cat)!.push(p)
-    }
-    return Array.from(grupos.entries())
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productosFiltrados])
-
-  function esPorKilo(producto: Producto) {
-    return producto.unidad.toLowerCase() === 'kg'
-  }
-
-  function agregarProducto(producto: Producto) {
-    setMensaje(null)
-    setCarrito((prev) => {
-      const existente = prev.find((i) => i.producto.id === producto.id)
-      if (existente) {
-        return prev.map((i) => (i.producto.id === producto.id ? { ...i, cantidad: i.cantidad + 1 } : i))
-      }
-      return [...prev, { producto, cantidad: 1 }]
-    })
-  }
-
-  function cambiarCantidad(productoId: number, cantidad: number) {
-    setCarrito((prev) =>
-      prev
-        .map((i) => (i.producto.id === productoId ? { ...i, cantidad: Math.max(esPorKilo(i.producto) ? 0.001 : 1, cantidad) } : i))
-        .filter((i) => i.cantidad > 0)
-    )
-  }
-
-  function quitarItem(productoId: number) {
-    setCarrito((prev) => prev.filter((i) => i.producto.id !== productoId))
-  }
-
-  async function confirmarVenta() {
-    if (!caja) {
-      setMensaje('Primero tenés que abrir la caja.')
-      return
-    }
-    if (!carrito.length) return
-    if (Math.abs(restante) > 0.01) {
-      setMensaje(
-        restante > 0
-          ? `Falta asignar ${formatMoney(restante)} entre los medios de pago.`
-          : `Asignaste ${formatMoney(-restante)} de más entre los medios de pago.`
-      )
-      return
-    }
-    if (usaCuentaCorriente && !clienteId) {
-      setMensaje('Elegí un cliente para pagar con cuenta corriente.')
-      return
-    }
-
-    const res = await api.ventas.crear({
-      cajaId: caja.id,
-      usuarioId: usuario!.id,
-      canal,
-      clienteId: clienteId === '' ? null : clienteId,
-      items: carrito.map((i) => ({ productoId: i.producto.id, cantidad: i.cantidad, precioUnitario: i.producto.precio_venta })),
-      pagos: pagos.map((p) => ({
-        medioPago: p.medioPago,
-        tarjeta: esConProveedor(p.medioPago) && p.tarjeta ? p.tarjeta : null,
-        monto: Number(p.monto) || 0
-      })),
-      descuento: descuentoNum
-    })
-
-    if (!res.ok) {
-      setMensaje(res.error ?? 'No se pudo registrar la venta')
-      return
-    }
-
-    setMensaje(`Venta registrada. Total: ${formatMoney(res.total ?? 0)}`)
-    setCarrito([])
-    setPagos([{ medioPago: 'efectivo', tarjeta: '', monto: '0' }])
-    setDescuento('0')
-    cargar()
-  }
-
-  if (!caja) {
-    return (
-      <div className="panel">
-        <h2>Ventas</h2>
-        <p>No hay una caja abierta. Andá a la sección Caja para abrirla antes de vender.</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="ventas-layout">
-      <div className="panel productos-panel">
-        <h2>Productos</h2>
-        <input className="busqueda" placeholder="Buscar producto..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
-        <div className="categorias-chips">
-          {categorias.map((c) => (
-            <button
-              key={c}
-              type="button"
-              className={`chip${categoria === c ? ' chip-activo' : ''}`}
-              onClick={() => setCategoria(c)}
-            >
-              {c === 'todas' ? 'Todas' : c}
-            </button>
-          ))}
-        </div>
-        {productosAgrupados.map(([cat, items]) => (
-          <div className="grupo-categoria" key={cat}>
-            {categoria === 'todas' && <h3 className="grupo-titulo">{cat}</h3>}
-            <div className="grid-productos">
-              {items.map((p) => (
-                <button key={p.id} className="card-producto" onClick={() => agregarProducto(p)} disabled={p.stock_actual <= 0}>
-                  <strong>{p.nombre}</strong>
-                  <span>
-                    {formatMoney(p.precio_venta)}
-                    {esPorKilo(p) && ' / kg'}
-                  </span>
-                  <small>
-                    Stock: {p.stock_actual} {p.unidad}
-                  </small>
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
-        {productosFiltrados.length === 0 && <p>No hay productos que coincidan.</p>}
-      </div>
-
-      <div className="panel carrito-panel">
-        <h2>Venta actual</h2>
-        {carrito.length === 0 && <p>Agregá productos desde la izquierda.</p>}
-        <ul className="carrito-lista">
-          {carrito.map((item) => (
-            <li key={item.producto.id}>
-              <span className="nombre">
-                {item.producto.nombre}
-                {esPorKilo(item.producto) && <small> (kg)</small>}
-              </span>
-              <input
-                type="number"
-                min={esPorKilo(item.producto) ? 0.001 : 1}
-                step={esPorKilo(item.producto) ? 0.001 : 1}
-                max={item.producto.stock_actual}
-                value={item.cantidad}
-                onChange={(e) => cambiarCantidad(item.producto.id, Number(e.target.value))}
-              />
-              <span className="subtotal">{formatMoney(item.cantidad * item.producto.precio_venta)}</span>
-              <button className="link" onClick={() => quitarItem(item.producto.id)}>
-                quitar
-              </button>
-            </li>
-          ))}
-        </ul>
-
-        <label>
-          Descuento
-          <input type="number" min={0} max={subtotalBruto} value={descuento} onChange={(e) => setDescuento(e.target.value)} />
-        </label>
-
-        {descuentoNum > 0 && (
-          <div className="total-row subtotal-row">
-            <span>Subtotal</span>
-            <span>{formatMoney(subtotalBruto)}</span>
-          </div>
-        )}
-
-        <div className="total-row">
-          <span>Total</span>
-          <strong>{formatMoney(total)}</strong>
-        </div>
-
-        <label>
-          Canal de venta
-          <select value={canal} onChange={(e) => setCanal(e.target.value as Canal)}>
-            {CANALES.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <div className="pagos-box">
-          <div className="pagos-header">
-            <span>Medios de pago</span>
-            <button className="link" type="button" onClick={agregarPago}>
-              + dividir pago
-            </button>
-          </div>
-          {pagos.map((pago, idx) => (
-            <div className="pago-linea" key={idx}>
-              <select value={pago.medioPago} onChange={(e) => actualizarPago(idx, { medioPago: e.target.value as MedioPago })}>
-                {MEDIOS_PAGO.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-              {esConProveedor(pago.medioPago) && (
-                <select value={pago.tarjeta} onChange={(e) => actualizarPago(idx, { tarjeta: e.target.value })}>
-                  <option value="">{esConBilletera(pago.medioPago) ? 'Billetera...' : 'Tarjeta...'}</option>
-                  {(esConBilletera(pago.medioPago) ? BILLETERAS_QR : TARJETAS).map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              )}
-              <input
-                type="number"
-                min={0}
-                value={pago.monto}
-                onChange={(e) => actualizarPago(idx, { monto: e.target.value })}
-              />
-              {pagos.length > 1 && (
-                <button className="link" type="button" onClick={() => quitarPago(idx)}>
-                  quitar
-                </button>
-              )}
-            </div>
-          ))}
-          <p className={Math.abs(restante) > 0.01 ? 'error' : 'ok'}>
-            {Math.abs(restante) > 0.01
-              ? restante > 0
-                ? `Falta asignar ${formatMoney(restante)}`
-                : `Sobra ${formatMoney(-restante)}`
-              : 'Pagos completos'}
-          </p>
-        </div>
-
-        {usaCuentaCorriente && (
-          <label>
-            Cliente
-            <select value={clienteId} onChange={(e) => setClienteId(e.target.value ? Number(e.target.value) : '')}>
-              <option value="">Elegir cliente...</option>
-              {clientes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nombre} (saldo: {formatMoney(c.saldo_cuenta_corriente)})
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-
-        {mensaje && <p className="mensaje">{mensaje}</p>}
-
-        <button className="primary" disabled={!carrito.length} onClick={confirmarVenta}>
-          Confirmar venta
-        </button>
-      </div>
-    </div>
-  )
 }
