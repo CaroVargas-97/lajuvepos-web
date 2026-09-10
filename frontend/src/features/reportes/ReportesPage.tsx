@@ -19,9 +19,30 @@ const CANAL_LABEL: Record<string, string> = {
   rappi: 'Rappi'
 }
 
+const TAB_LABEL: Record<Tab, string> = {
+  rentabilidad: 'Rentabilidad',
+  canal: 'Por canal',
+  medioPago: 'Por medio de pago',
+  tarjeta: 'Por tarjeta o billetera',
+  categoria: 'Por categoría'
+}
+
 function porcentaje(parte: number, total: number) {
   if (!total) return '0%'
   return `${Math.round((parte / total) * 100)}%`
+}
+
+function descargarCSV(nombreArchivo: string, filas: (string | number)[][]) {
+  const contenido = filas.map((fila) => fila.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+  const blob = new Blob(['\uFEFF' + contenido], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = nombreArchivo
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
 }
 
 export function ReportesPage() {
@@ -70,11 +91,62 @@ export function ReportesPage() {
   const margen = totales.total_vendido > 0 ? (totales.ganancia / totales.total_vendido) * 100 : 0
   const productoTop = useMemo(() => filas.slice().sort((a, b) => b.total_vendido - a.total_vendido)[0], [filas])
 
+  function imprimir() {
+    window.print()
+  }
+
+  function exportarCSV() {
+    let encabezados: string[]
+    let filasDatos: (string | number)[][]
+
+    if (tab === 'rentabilidad') {
+      encabezados = ['Producto', 'Cantidad', 'Total vendido', '% del total', 'Costo', 'Ganancia', 'Margen']
+      filasDatos = filas.map((f) => [
+        f.nombre,
+        f.cantidad_vendida,
+        f.total_vendido,
+        porcentaje(f.total_vendido, totales.total_vendido),
+        f.costo_total,
+        f.ganancia,
+        f.total_vendido ? `${((f.ganancia / f.total_vendido) * 100).toFixed(0)}%` : '-'
+      ])
+    } else if (tab === 'canal') {
+      encabezados = ['Canal', 'Cantidad de ventas', 'Total vendido', '% del total']
+      filasDatos = porCanal.map((c) => [
+        CANAL_LABEL[c.canal] ?? c.canal,
+        c.cantidad_ventas,
+        c.total_vendido,
+        porcentaje(c.total_vendido, totales.total_vendido)
+      ])
+    } else if (tab === 'medioPago') {
+      encabezados = ['Medio de pago', 'Cantidad de pagos', 'Total vendido', '% del total']
+      filasDatos = porMedioPago.map((m) => [
+        m.medio_pago,
+        m.cantidad_pagos,
+        m.total_vendido,
+        porcentaje(m.total_vendido, totales.total_vendido)
+      ])
+    } else if (tab === 'tarjeta') {
+      encabezados = ['Medio de pago', 'Tarjeta / billetera', 'Cantidad de pagos', 'Total vendido']
+      filasDatos = porTarjeta.map((t) => [t.medio_pago, t.tarjeta, t.cantidad_pagos, t.total_vendido])
+    } else {
+      encabezados = ['Categoría', 'Cantidad vendida', 'Total vendido', '% del total']
+      filasDatos = porCategoria.map((c) => [
+        c.categoria,
+        c.cantidad_vendida,
+        c.total_vendido,
+        porcentaje(c.total_vendido, totales.total_vendido)
+      ])
+    }
+
+    descargarCSV(`reporte-${tab}-${desde}-a-${hasta}.csv`, [encabezados, ...filasDatos])
+  }
+
   return (
     <div className="panel">
-      <h2>Informes</h2>
+      <h2 className="no-imprimir">Informes</h2>
 
-      <div className="form-inline">
+      <div className="form-inline no-imprimir">
         <label>
           Desde
           <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} />
@@ -86,11 +158,21 @@ export function ReportesPage() {
         <button className="primary" onClick={cargar}>
           Filtrar
         </button>
+        <button onClick={imprimir}>Imprimir</button>
+        <button onClick={exportarCSV}>Exportar CSV</button>
       </div>
 
       {error && <p className="error">{error}</p>}
 
-      <section className="comprobante-kpis">
+      <div className="imprimible">
+        <div className="comprobante-header solo-imprimir">
+          <h2>LaJuvePOS — Informe de {TAB_LABEL[tab]}</h2>
+          <p>
+            Período: {desde} a {hasta}
+          </p>
+        </div>
+
+        <section className="comprobante-kpis">
         <div className="kpi">
           <span>Total vendido</span>
           <strong>{formatMoney(totales.total_vendido)}</strong>
@@ -118,7 +200,7 @@ export function ReportesPage() {
         </p>
       )}
 
-      <div className="caja-tabs">
+      <div className="caja-tabs no-imprimir">
         <button className={tab === 'rentabilidad' ? 'primary' : ''} onClick={() => setTab('rentabilidad')}>
           Rentabilidad
         </button>
@@ -291,6 +373,7 @@ export function ReportesPage() {
           </table>
         </div>
       )}
+      </div>
     </div>
   )
 }
