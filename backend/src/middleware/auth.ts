@@ -3,19 +3,25 @@ import crypto from 'node:crypto'
 import { prisma } from '../prisma.js'
 
 const SECRET = process.env.AUTH_SECRET || 'lajuvepos-dev-secret'
+const DURACION_TOKEN_MS = 24 * 60 * 60 * 1000
 
 export function firmarToken(usuarioId: number) {
-  const firma = crypto.createHmac('sha256', SECRET).update(String(usuarioId)).digest('hex')
-  return `${usuarioId}.${firma}`
+  const expira = Date.now() + DURACION_TOKEN_MS
+  const payload = `${usuarioId}.${expira}`
+  const firma = crypto.createHmac('sha256', SECRET).update(payload).digest('hex')
+  return `${payload}.${firma}`
 }
 
 export function verificarToken(token: string): number | null {
-  const [idStr, firma] = token.split('.')
-  if (!idStr || !firma) return null
-  const esperada = crypto.createHmac('sha256', SECRET).update(idStr).digest('hex')
+  const [idStr, expiraStr, firma] = token.split('.')
+  if (!idStr || !expiraStr || !firma) return null
+  const payload = `${idStr}.${expiraStr}`
+  const esperada = crypto.createHmac('sha256', SECRET).update(payload).digest('hex')
   if (firma.length !== esperada.length) return null
   const iguales = crypto.timingSafeEqual(Buffer.from(firma), Buffer.from(esperada))
-  return iguales ? Number(idStr) : null
+  if (!iguales) return null
+  if (Date.now() > Number(expiraStr)) return null
+  return Number(idStr)
 }
 
 export function hashPin(pin: string): string {
