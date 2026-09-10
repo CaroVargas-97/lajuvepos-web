@@ -52,7 +52,9 @@ export async function crear(req: Request, res: Response) {
 
   const medioPagoVenta = pagos.length === 1 ? pagos[0].medioPago : 'mixto'
 
-  const ventaId = await prisma.$transaction(async (tx) => {
+  let ventaId: number
+  try {
+    ventaId = await prisma.$transaction(async (tx) => {
     const venta = await tx.venta.create({
       data: { cajaId, usuarioId, clienteId, canal, descuento: desc, total, medioPago: medioPagoVenta as any }
     })
@@ -73,7 +75,13 @@ export async function crear(req: Request, res: Response) {
         }
       })
 
-      await tx.producto.update({ where: { id: item.productoId }, data: { stockActual: { decrement: item.cantidad } } })
+      // Update condicional (no un simple decrement) para que dos ventas simultáneas del
+      // mismo producto no puedan dejar el stock negativo (evita la condición de carrera).
+      const filasAfectadas = await tx.$executeRaw`
+        UPDATE productos SET stock_actual = stock_actual - ${item.cantidad}
+        WHERE id = ${item.productoId} AND stock_actual >= ${item.cantidad}
+      `
+      if (filasAfectadas === 0) throw new Error(`STOCK_INSUFICIENTE:${item.productoId}`)
 
       await tx.movimientoStock.create({
         data: {
@@ -93,7 +101,11 @@ export async function crear(req: Request, res: Response) {
     }
 
     if (pagoCtaCte && clienteId) {
-      await tx.cliente.update({ where: { id: clienteId }, data: { saldoCuentaCorriente: { decrement: pagoCtaCte.monto } } })
+      const filasCliente = await tx.$executeRaw`
+        UPDATE clientes SET saldo_cuenta_corriente = saldo_cuenta_corriente - ${pagoCtaCte.monto}
+        WHERE id = ${clienteId} AND saldo_cuenta_corriente >= ${pagoCtaCte.monto}
+      `
+      if (filasCliente === 0) throw new Error('SALDO_INSUFICIENTE')
       await tx.cuentaCorrienteMovimiento.create({
         data: {
           clienteId,
@@ -106,7 +118,16 @@ export async function crear(req: Request, res: Response) {
     }
 
     return venta.id
-  })
+    })
+  } catch (e: any) {
+    if (typeof e.message === 'string' && e.message.startsWith('STOCK_INSUFICIENTE')) {
+      return res.json({ ok: false, error: 'Stock insuficiente para completar la venta' })
+    }
+    if (e.message === 'SALDO_INSUFICIENTE') {
+      return res.json({ ok: false, error: 'El cliente no tiene saldo a favor suficiente' })
+    }
+    throw e
+  }
 
   res.json({ ok: true, ventaId, total })
 }
