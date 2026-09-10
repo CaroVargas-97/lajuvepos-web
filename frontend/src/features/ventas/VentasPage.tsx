@@ -6,8 +6,8 @@ import { api } from '../../lib/api'
 
 const MEDIOS_PAGO: { value: MedioPago; label: string }[] = [
   { value: 'efectivo', label: 'Efectivo' },
-  { value: 'debito', label: 'D√©bito' },
-  { value: 'credito', label: 'Cr√©dito' },
+  { value: 'debito', label: 'Débito' },
+  { value: 'credito', label: 'Crédito' },
   { value: 'qr', label: 'QR' },
   { value: 'cuenta_corriente', label: 'Cuenta corriente' }
 ]
@@ -97,20 +97,20 @@ export function VentasPage() {
   const usaCuentaCorriente = pagos.some((p) => p.medioPago === 'cuenta_corriente')
 
   const categorias = useMemo(
-    () => ['todas', ...Array.from(new Set(productos.map((p) => p.categoria || 'Sin categor√≠a')))],
+    () => ['todas', ...Array.from(new Set(productos.map((p) => p.categoria || 'Sin categoría')))],
     [productos]
   )
 
   const productosFiltrados = productos.filter((p) => {
     const coincideNombre = p.nombre.toLowerCase().includes(busqueda.toLowerCase())
-    const coincideCategoria = categoria === 'todas' || (p.categoria || 'Sin categor√≠a') === categoria
+    const coincideCategoria = categoria === 'todas' || (p.categoria || 'Sin categoría') === categoria
     return coincideNombre && coincideCategoria
   })
 
   const productosAgrupados = useMemo(() => {
     const grupos = new Map<string, Producto[]>()
     for (const p of productosFiltrados) {
-      const cat = p.categoria || 'Sin categor√≠a'
+      const cat = p.categoria || 'Sin categoría'
       if (!grupos.has(cat)) grupos.set(cat, [])
       grupos.get(cat)!.push(p)
     }
@@ -147,7 +147,7 @@ export function VentasPage() {
 
   async function confirmarVenta() {
     if (!caja) {
-      setMensaje('Primero ten√©s que abrir la caja.')
+      setMensaje('Primero tenés que abrir la caja.')
       return
     }
     if (!carrito.length) return
@@ -155,12 +155,12 @@ export function VentasPage() {
       setMensaje(
         restante > 0
           ? `Falta asignar ${formatMoney(restante)} entre los medios de pago.`
-          : `Asignaste ${formatMoney(-restante)} de m√°s entre los medios de pago.`
+          : `Asignaste ${formatMoney(-restante)} de más entre los medios de pago.`
       )
       return
     }
     if (usaCuentaCorriente && !clienteId) {
-      setMensaje('Eleg√≠ un cliente para pagar con cuenta corriente.')
+      setMensaje('Elegí un cliente para pagar con cuenta corriente.')
       return
     }
 
@@ -194,7 +194,7 @@ export function VentasPage() {
     return (
       <div className="panel">
         <h2>Ventas</h2>
-        <p>No hay una caja abierta. And√° a la secci√≥n Caja para abrirla antes de vender.</p>
+        <p>No hay una caja abierta. Andá a la sección Caja para abrirla antes de vender.</p>
       </div>
     )
   }
@@ -240,7 +240,7 @@ export function VentasPage() {
 
       <div className="panel carrito-panel">
         <h2>Venta actual</h2>
-        {carrito.length === 0 && <p>Agreg√° productos desde la izquierda.</p>}
+        {carrito.length === 0 && <p>Agregá productos desde la izquierda.</p>}
         <ul className="carrito-lista">
           {carrito.map((item) => (
             <li key={item.producto.id}>
