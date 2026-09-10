@@ -3,7 +3,8 @@ export function formatMoney(value: number): string {
 }
 
 export function formatDateTime(value: string): string {
-  return new Date(value.replace(' ', 'T') + 'Z').toLocaleString('es-AR')
+  const normalizado = value.includes('T') ? value : value.replace(' ', 'T') + 'Z'
+  return new Date(normalizado).toLocaleString('es-AR')
 }
 
 export function todayISO(): string {
