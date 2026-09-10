@@ -194,7 +194,13 @@ export function CajaPage() {
 
   function abrioATiempo(c: Caja): boolean | null {
     if (!horaEsperada) return null
-    const horaApertura = c.fecha_apertura.slice(11, 16)
+    // fecha_apertura viene en UTC: hay que pasarla a hora local antes de comparar,
+    // si no todas las aperturas se corren 3hs y el indicador queda mal.
+    const horaApertura = new Date(c.fecha_apertura).toLocaleTimeString('es-AR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    })
     return horaApertura <= horaEsperada
   }
 
