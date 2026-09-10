@@ -18,6 +18,10 @@ export function verificarToken(token: string): number | null {
   return iguales ? Number(idStr) : null
 }
 
+export function hashPin(pin: string): string {
+  return crypto.createHmac('sha256', SECRET).update(`pin:${pin}`).digest('hex')
+}
+
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
