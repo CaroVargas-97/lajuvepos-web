@@ -24,7 +24,7 @@ export async function movimientos(req: Request, res: Response) {
 
 export async function crearNotaCredito(req: Request, res: Response) {
   const { clienteId, ventaId, monto, motivo, usuarioId } = req.body
-  if (monto <= 0) return res.json({ ok: false, error: 'El monto debe ser mayor a 0' })
+  if (!(Number.isFinite(monto) && monto > 0)) return res.json({ ok: false, error: 'El monto debe ser mayor a 0' })
 
   const cliente = await prisma.cliente.findUnique({ where: { id: clienteId } })
   if (!cliente) return res.json({ ok: false, error: 'Cliente no encontrado' })
