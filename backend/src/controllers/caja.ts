@@ -1,5 +1,11 @@
 import { Request, Response } from 'express'
+import { Prisma } from '@prisma/client'
 import { prisma } from '../prisma.js'
+
+// Las fechas se guardan en UTC pero el negocio opera en hora Argentina: convertir antes
+// de agrupar por día/mes, si no una venta de la noche cae en el día calendario siguiente.
+const fechaLocal = (col: string) =>
+  Prisma.raw(`(${col} AT TIME ZONE 'UTC' AT TIME ZONE 'America/Argentina/Buenos_Aires')`)
 
 async function calcularResumen(cajaId: number, montoInicial: number) {
   const totales = await prisma.$queryRaw<{ medio_pago: string; total: number }[]>`
@@ -169,11 +175,11 @@ export async function historial(_req: Request, res: Response) {
 export async function cierresPorDia(req: Request, res: Response) {
   const { desde, hasta } = req.query as { desde: string; hasta: string }
   const rows = await prisma.$queryRaw<{ dia: string; total_vendido: number; cantidad_ventas: number }[]>`
-    SELECT to_char(fecha, 'YYYY-MM-DD') as dia,
+    SELECT to_char(${fechaLocal('fecha')}, 'YYYY-MM-DD') as dia,
            COALESCE(SUM(total), 0)::float as total_vendido,
            COUNT(*)::int as cantidad_ventas
     FROM ventas
-    WHERE fecha::date BETWEEN ${desde}::date AND ${hasta}::date AND anulada = false
+    WHERE ${fechaLocal('fecha')}::date BETWEEN ${desde}::date AND ${hasta}::date AND anulada = false
     GROUP BY dia ORDER BY dia DESC
   `
   res.json(rows)
@@ -182,11 +188,11 @@ export async function cierresPorDia(req: Request, res: Response) {
 export async function cierresPorMes(req: Request, res: Response) {
   const { anio } = req.query as { anio: string }
   const rows = await prisma.$queryRaw<{ mes: string; total_vendido: number; cantidad_ventas: number }[]>`
-    SELECT to_char(fecha, 'YYYY-MM') as mes,
+    SELECT to_char(${fechaLocal('fecha')}, 'YYYY-MM') as mes,
            COALESCE(SUM(total), 0)::float as total_vendido,
            COUNT(*)::int as cantidad_ventas
     FROM ventas
-    WHERE to_char(fecha, 'YYYY') = ${anio} AND anulada = false
+    WHERE to_char(${fechaLocal('fecha')}, 'YYYY') = ${anio} AND anulada = false
     GROUP BY mes ORDER BY mes DESC
   `
   res.json(rows)
