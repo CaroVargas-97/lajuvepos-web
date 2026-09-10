@@ -36,11 +36,14 @@ async function calcularResumen(cajaId: number, montoInicial: number) {
   }
 }
 
+const USUARIO_PUBLICO = { select: { id: true, nombre: true } }
+
 function serializeCaja(c: any) {
+  const { usuario, usuarioCierre, ...resto } = c
   return {
-    ...c,
-    usuario_nombre: c.usuario?.nombre,
-    usuario_cierre_nombre: c.usuarioCierre?.nombre ?? null,
+    ...resto,
+    usuario_nombre: usuario?.nombre,
+    usuario_cierre_nombre: usuarioCierre?.nombre ?? null,
     usuario_cierre_id: c.usuarioCierreId,
     monto_inicial: Number(c.montoInicial),
     monto_final_declarado: c.montoFinalDeclarado != null ? Number(c.montoFinalDeclarado) : null,
@@ -53,7 +56,7 @@ export async function actual(_req: Request, res: Response) {
   const caja = await prisma.caja.findFirst({
     where: { estado: 'abierta' },
     orderBy: { id: 'desc' },
-    include: { usuario: true, usuarioCierre: true }
+    include: { usuario: USUARIO_PUBLICO, usuarioCierre: USUARIO_PUBLICO }
   })
   res.json(caja ? serializeCaja(caja) : null)
 }
@@ -102,7 +105,10 @@ export async function cerrar(req: Request, res: Response) {
 
 export async function comprobante(req: Request, res: Response) {
   const id = Number(req.params.id)
-  const caja = await prisma.caja.findUnique({ where: { id }, include: { usuario: true, usuarioCierre: true } })
+  const caja = await prisma.caja.findUnique({
+    where: { id },
+    include: { usuario: USUARIO_PUBLICO, usuarioCierre: USUARIO_PUBLICO }
+  })
   if (!caja) return res.json({ ok: false, error: 'La caja no existe' })
 
   const r = await calcularResumen(id, Number(caja.montoInicial))
@@ -154,7 +160,7 @@ export async function comprobante(req: Request, res: Response) {
 
 export async function historial(_req: Request, res: Response) {
   const cajas = await prisma.caja.findMany({
-    include: { usuario: true, usuarioCierre: true },
+    include: { usuario: USUARIO_PUBLICO, usuarioCierre: USUARIO_PUBLICO },
     orderBy: { id: 'desc' }
   })
   res.json(cajas.map(serializeCaja))
