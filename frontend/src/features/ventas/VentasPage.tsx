@@ -6,8 +6,8 @@ import { api } from '../../lib/api'
 
 const MEDIOS_PAGO: { value: MedioPago; label: string }[] = [
   { value: 'efectivo', label: 'Efectivo' },
-  { value: 'debito', label: 'Débito' },
-  { value: 'credito', label: 'Crédito' },
+  { value: 'debito', label: 'D√©bito' },
+  { value: 'credito', label: 'Cr√©dito' },
   { value: 'qr', label: 'QR' },
   { value: 'cuenta_corriente', label: 'Cuenta corriente' }
 ]
@@ -97,15 +97,26 @@ export function VentasPage() {
   const usaCuentaCorriente = pagos.some((p) => p.medioPago === 'cuenta_corriente')
 
   const categorias = useMemo(
-    () => ['todas', ...Array.from(new Set(productos.map((p) => p.categoria || 'Sin categoría')))],
+    () => ['todas', ...Array.from(new Set(productos.map((p) => p.categoria || 'Sin categor√≠a')))],
     [productos]
   )
 
   const productosFiltrados = productos.filter((p) => {
     const coincideNombre = p.nombre.toLowerCase().includes(busqueda.toLowerCase())
-    const coincideCategoria = categoria === 'todas' || (p.categoria || 'Sin categoría') === categoria
+    const coincideCategoria = categoria === 'todas' || (p.categoria || 'Sin categor√≠a') === categoria
     return coincideNombre && coincideCategoria
   })
+
+  const productosAgrupados = useMemo(() => {
+    const grupos = new Map<string, Producto[]>()
+    for (const p of productosFiltrados) {
+      const cat = p.categoria || 'Sin categor√≠a'
+      if (!grupos.has(cat)) grupos.set(cat, [])
+      grupos.get(cat)!.push(p)
+    }
+    return Array.from(grupos.entries())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productosFiltrados])
 
   function esPorKilo(producto: Producto) {
     return producto.unidad.toLowerCase() === 'kg'
@@ -136,7 +147,7 @@ export function VentasPage() {
 
   async function confirmarVenta() {
     if (!caja) {
-      setMensaje('Primero tenés que abrir la caja.')
+      setMensaje('Primero ten√©s que abrir la caja.')
       return
     }
     if (!carrito.length) return
@@ -144,12 +155,12 @@ export function VentasPage() {
       setMensaje(
         restante > 0
           ? `Falta asignar ${formatMoney(restante)} entre los medios de pago.`
-          : `Asignaste ${formatMoney(-restante)} de más entre los medios de pago.`
+          : `Asignaste ${formatMoney(-restante)} de m√°s entre los medios de pago.`
       )
       return
     }
     if (usaCuentaCorriente && !clienteId) {
-      setMensaje('Elegí un cliente para pagar con cuenta corriente.')
+      setMensaje('Eleg√≠ un cliente para pagar con cuenta corriente.')
       return
     }
 
@@ -183,7 +194,7 @@ export function VentasPage() {
     return (
       <div className="panel">
         <h2>Ventas</h2>
-        <p>No hay una caja abierta. Andá a la sección Caja para abrirla antes de vender.</p>
+        <p>No hay una caja abierta. And√° a la secci√≥n Caja para abrirla antes de vender.</p>
       </div>
     )
   }
@@ -192,36 +203,44 @@ export function VentasPage() {
     <div className="ventas-layout">
       <div className="panel productos-panel">
         <h2>Productos</h2>
-        <div className="form-inline">
-          <input className="busqueda" placeholder="Buscar producto..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
-          <select value={categoria} onChange={(e) => setCategoria(e.target.value)}>
-            {categorias.map((c) => (
-              <option key={c} value={c}>
-                {c === 'todas' ? 'Todas las categorías' : c}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="grid-productos">
-          {productosFiltrados.map((p) => (
-            <button key={p.id} className="card-producto" onClick={() => agregarProducto(p)} disabled={p.stock_actual <= 0}>
-              <strong>{p.nombre}</strong>
-              <span>
-                {formatMoney(p.precio_venta)}
-                {esPorKilo(p) && ' / kg'}
-              </span>
-              <small>
-                Stock: {p.stock_actual} {p.unidad}
-              </small>
+        <input className="busqueda" placeholder="Buscar producto..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
+        <div className="categorias-chips">
+          {categorias.map((c) => (
+            <button
+              key={c}
+              type="button"
+              className={`chip${categoria === c ? ' chip-activo' : ''}`}
+              onClick={() => setCategoria(c)}
+            >
+              {c === 'todas' ? 'Todas' : c}
             </button>
           ))}
-          {productosFiltrados.length === 0 && <p>No hay productos que coincidan.</p>}
         </div>
+        {productosAgrupados.map(([cat, items]) => (
+          <div className="grupo-categoria" key={cat}>
+            {categoria === 'todas' && <h3 className="grupo-titulo">{cat}</h3>}
+            <div className="grid-productos">
+              {items.map((p) => (
+                <button key={p.id} className="card-producto" onClick={() => agregarProducto(p)} disabled={p.stock_actual <= 0}>
+                  <strong>{p.nombre}</strong>
+                  <span>
+                    {formatMoney(p.precio_venta)}
+                    {esPorKilo(p) && ' / kg'}
+                  </span>
+                  <small>
+                    Stock: {p.stock_actual} {p.unidad}
+                  </small>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+        {productosFiltrados.length === 0 && <p>No hay productos que coincidan.</p>}
       </div>
 
       <div className="panel carrito-panel">
         <h2>Venta actual</h2>
-        {carrito.length === 0 && <p>Agregá productos desde la izquierda.</p>}
+        {carrito.length === 0 && <p>Agreg√° productos desde la izquierda.</p>}
         <ul className="carrito-lista">
           {carrito.map((item) => (
             <li key={item.producto.id}>
