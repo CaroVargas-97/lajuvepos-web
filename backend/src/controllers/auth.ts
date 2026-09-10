@@ -1,5 +1,5 @@
 import { Request, Response } from 'express'
-import { firmarToken } from '../middleware/auth.js'
+import { firmarToken, hashPin } from '../middleware/auth.js'
 import { prisma } from '../prisma.js'
 
 export async function login(req: Request, res: Response) {
@@ -8,7 +8,7 @@ export async function login(req: Request, res: Response) {
     return res.status(401).json({ error: 'PIN incorrecto' })
   }
 
-  const usuario = await prisma.usuario.findUnique({ where: { pin } })
+  const usuario = await prisma.usuario.findUnique({ where: { pin: hashPin(pin) } })
   if (!usuario || !usuario.activo) return res.status(401).json({ error: 'PIN incorrecto' })
 
   res.json({
@@ -32,7 +32,7 @@ export async function crearUsuario(req: Request, res: Response) {
   if (!/^\d{4}$/.test(pin ?? '')) return res.status(400).json({ ok: false, error: 'El PIN debe tener 4 dígitos' })
 
   try {
-    const usuario = await prisma.usuario.create({ data: { nombre, pin, rol } })
+    const usuario = await prisma.usuario.create({ data: { nombre, pin: hashPin(pin), rol } })
     res.json({ ok: true, id: usuario.id })
   } catch (e) {
     res.status(400).json({ ok: false, error: 'Ya existe un usuario con ese PIN' })
@@ -45,7 +45,7 @@ export async function cambiarPin(req: Request, res: Response) {
   if (!/^\d{4}$/.test(pin ?? '')) return res.status(400).json({ ok: false, error: 'El PIN debe tener 4 dígitos' })
 
   try {
-    await prisma.usuario.update({ where: { id }, data: { pin } })
+    await prisma.usuario.update({ where: { id }, data: { pin: hashPin(pin) } })
     res.json({ ok: true })
   } catch (e) {
     res.status(400).json({ ok: false, error: 'Ya existe un usuario con ese PIN' })
