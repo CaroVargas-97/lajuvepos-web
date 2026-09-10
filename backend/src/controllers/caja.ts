@@ -69,11 +69,23 @@ export async function actual(_req: Request, res: Response) {
 
 export async function abrir(req: Request, res: Response) {
   const { montoInicial, usuarioId } = req.body
-  const abierta = await prisma.caja.findFirst({ where: { estado: 'abierta' } })
-  if (abierta) return res.json({ ok: false, error: 'Ya hay una caja abierta' })
 
-  const caja = await prisma.caja.create({ data: { montoInicial, usuarioId } })
-  res.json({ ok: true, id: caja.id })
+  try {
+    const id = await prisma.$transaction(async (tx) => {
+      // Lock para que dos aperturas simultáneas (dos pestañas, doble click) no puedan
+      // pasar ambas el chequeo antes de que la primera termine de crear la caja.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('lajuvepos_abrir_caja'))`
+      const abierta = await tx.caja.findFirst({ where: { estado: 'abierta' } })
+      if (abierta) throw new Error('YA_ABIERTA')
+
+      const caja = await tx.caja.create({ data: { montoInicial, usuarioId } })
+      return caja.id
+    })
+    res.json({ ok: true, id })
+  } catch (e: any) {
+    if (e.message === 'YA_ABIERTA') return res.json({ ok: false, error: 'Ya hay una caja abierta' })
+    throw e
+  }
 }
 
 export async function resumen(req: Request, res: Response) {
