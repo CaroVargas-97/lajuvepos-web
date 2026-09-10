@@ -36,21 +36,29 @@ export function ReportesPage() {
   const [porTarjeta, setPorTarjeta] = useState<
     { medio_pago: string; tarjeta: string; cantidad_pagos: number; total_vendido: number }[]
   >([])
+  const [error, setError] = useState<string | null>(null)
 
   async function cargar() {
-    const [rent, canal, medioPago, tarjeta, categoria] = await Promise.all([
-      api.reportes.rentabilidad(desde, hasta),
-      api.reportes.ventasPorCanal(desde, hasta),
-      api.reportes.ventasPorMedioPago(desde, hasta),
-      api.reportes.ventasPorTarjeta(desde, hasta),
-      api.reportes.ventasPorCategoria(desde, hasta)
-    ])
-    setFilas(rent.porProducto as FilaProducto[])
-    setTotales(rent.totales)
-    setPorCanal(canal)
-    setPorMedioPago(medioPago)
-    setPorTarjeta(tarjeta)
-    setPorCategoria(categoria)
+    setError(null)
+    try {
+      const [rent, canal, medioPago, tarjeta, categoria] = await Promise.all([
+        api.reportes.rentabilidad(desde, hasta),
+        api.reportes.ventasPorCanal(desde, hasta),
+        api.reportes.ventasPorMedioPago(desde, hasta),
+        api.reportes.ventasPorTarjeta(desde, hasta),
+        api.reportes.ventasPorCategoria(desde, hasta)
+      ])
+      // Si el backend devuelve algo inesperado (ej. un reinicio del servidor a mitad de
+      // pedido), usamos valores por defecto en vez de romper toda la pantalla.
+      setFilas((rent?.porProducto as FilaProducto[]) ?? [])
+      setTotales(rent?.totales ?? { total_vendido: 0, costo_total: 0, ganancia: 0 })
+      setPorCanal(canal ?? [])
+      setPorMedioPago(medioPago ?? [])
+      setPorTarjeta(tarjeta ?? [])
+      setPorCategoria(categoria ?? [])
+    } catch {
+      setError('No se pudieron cargar los reportes. Probá de nuevo en unos segundos.')
+    }
   }
 
   useEffect(() => {
@@ -79,6 +87,8 @@ export function ReportesPage() {
           Filtrar
         </button>
       </div>
+
+      {error && <p className="error">{error}</p>}
 
       <section className="comprobante-kpis">
         <div className="kpi">
