@@ -84,6 +84,7 @@ model Producto {
 
   movimientosStock MovimientoStock[]
   ventaItems       VentaItem[]
+  notasCredito     NotaCredito[]
 
   @@map("productos")
 }
@@ -188,6 +189,8 @@ model NotaCredito {
   ventaId    Int?      @map("venta_id")
   cliente    Cliente   @relation(fields: [clienteId], references: [id])
   clienteId  Int       @map("cliente_id")
+  producto   Producto? @relation(fields: [productoId], references: [id])
+  productoId Int?      @map("producto_id")
   monto      Decimal   @db.Decimal(12, 2)
   motivo     String?
   fecha      DateTime  @default(now())
