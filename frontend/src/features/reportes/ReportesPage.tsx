@@ -71,7 +71,7 @@ export function ReportesPage() {
       ])
       // Si el backend devuelve algo inesperado (ej. un reinicio del servidor a mitad de
       // pedido), usamos valores por defecto en vez de romper toda la pantalla.
-      setFilas((rent?.porProducto as FilaProducto[]) ?? [])
+      setFilas((rent?.por_producto as FilaProducto[]) ?? [])
       setTotales(rent?.totales ?? { total_vendido: 0, costo_total: 0, ganancia: 0 })
       setPorCanal(canal ?? [])
       setPorMedioPago(medioPago ?? [])
