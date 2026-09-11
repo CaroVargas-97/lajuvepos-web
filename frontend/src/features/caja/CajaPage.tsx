@@ -87,12 +87,12 @@ export function CajaPage() {
         res.ok
           ? {
               totales: res.totales ?? [],
-              totalVentas: res.totalVentas ?? 0,
-              totalDescuentos: res.totalDescuentos ?? 0,
-              cantidadVentas: res.cantidadVentas ?? 0,
-              totalIngresos: res.totalIngresos ?? 0,
-              totalEgresos: res.totalEgresos ?? 0,
-              efectivoEsperado: res.efectivoEsperado ?? 0
+              totalVentas: res.total_ventas ?? 0,
+              totalDescuentos: res.total_descuentos ?? 0,
+              cantidadVentas: res.cantidad_ventas ?? 0,
+              totalIngresos: res.total_ingresos ?? 0,
+              totalEgresos: res.total_egresos ?? 0,
+              efectivoEsperado: res.efectivo_esperado ?? 0
             }
           : null
       )
@@ -145,12 +145,12 @@ export function CajaPage() {
     }
     setResultadoCierre({
       totales: res.totales ?? [],
-      totalVentas: res.totalVentas ?? 0,
-      totalDescuentos: res.totalDescuentos ?? 0,
-      cantidadVentas: res.cantidadVentas ?? 0,
-      totalIngresos: res.totalIngresos ?? 0,
-      totalEgresos: res.totalEgresos ?? 0,
-      efectivoEsperado: res.efectivoEsperado ?? 0,
+      totalVentas: res.total_ventas ?? 0,
+      totalDescuentos: res.total_descuentos ?? 0,
+      cantidadVentas: res.cantidad_ventas ?? 0,
+      totalIngresos: res.total_ingresos ?? 0,
+      totalEgresos: res.total_egresos ?? 0,
+      efectivoEsperado: res.efectivo_esperado ?? 0,
       diferencia: res.diferencia ?? 0
     })
     setMontoFinal('')
@@ -230,6 +230,11 @@ export function CajaPage() {
             Caja abierta por <strong>{caja.usuario_nombre}</strong> desde {formatDateTime(caja.fecha_apertura)} — Monto
             inicial {formatMoney(caja.monto_inicial)}
           </p>
+          {resumen && (
+            <p className="mensaje">
+              Efectivo esperado en este momento: <strong>{formatMoney(resumen.efectivoEsperado)}</strong>
+            </p>
+          )}
           <label>
             Monto contado al cierre
             <input type="number" min={0} value={montoFinal} onChange={(e) => setMontoFinal(e.target.value)} />
