@@ -3,6 +3,7 @@ import { formatDateTime, formatMoney } from '../../lib/format'
 interface NotaCredito {
   id: number
   cliente_nombre: string
+  producto_nombre: string | null
   monto: number
   motivo: string
   fecha: string
@@ -34,6 +35,12 @@ export function NotaCreditoImprimible({ nota, onClose }: { nota: NotaCredito; on
                   <td>Cliente</td>
                   <td>{nota.cliente_nombre}</td>
                 </tr>
+                {nota.producto_nombre && (
+                  <tr>
+                    <td>Producto</td>
+                    <td>{nota.producto_nombre}</td>
+                  </tr>
+                )}
                 <tr>
                   <td>Monto</td>
                   <td>{formatMoney(nota.monto)}</td>
