@@ -5,12 +5,12 @@ import { api } from '../../lib/api'
 
 interface ResumenCaja {
   totales: { medio_pago: string; total: number }[]
-  totalVentas: number
-  totalDescuentos: number
-  cantidadVentas: number
-  totalIngresos: number
-  totalEgresos: number
-  efectivoEsperado: number
+  total_ventas: number
+  total_descuentos: number
+  cantidad_ventas: number
+  total_ingresos: number
+  total_egresos: number
+  efectivo_esperado: number
 }
 
 interface Comprobante {
@@ -52,11 +52,11 @@ export function ComprobanteCierre({ cajaId, onClose }: { cajaId: number; onClose
         setData({
           caja: res.caja,
           resumen: res.resumen,
-          porCanal: res.porCanal ?? [],
-          porCategoria: res.porCategoria ?? [],
-          topProductos: res.topProductos ?? [],
+          porCanal: res.por_canal ?? [],
+          porCategoria: res.por_categoria ?? [],
+          topProductos: res.top_productos ?? [],
           movimientos: res.movimientos ?? [],
-          ticketPromedio: res.ticketPromedio ?? 0
+          ticketPromedio: res.ticket_promedio ?? 0
         })
       }
     })
@@ -93,11 +93,11 @@ export function ComprobanteCierre({ cajaId, onClose }: { cajaId: number; onClose
             <section className="comprobante-kpis">
               <div className="kpi">
                 <span>Total vendido</span>
-                <strong>{formatMoney(data.resumen.totalVentas)}</strong>
+                <strong>{formatMoney(data.resumen.total_ventas)}</strong>
               </div>
               <div className="kpi">
                 <span>Cantidad de ventas</span>
-                <strong>{data.resumen.cantidadVentas}</strong>
+                <strong>{data.resumen.cantidad_ventas}</strong>
               </div>
               <div className="kpi">
                 <span>Ticket promedio</span>
@@ -105,7 +105,7 @@ export function ComprobanteCierre({ cajaId, onClose }: { cajaId: number; onClose
               </div>
               <div className="kpi">
                 <span>Descuentos otorgados</span>
-                <strong>{formatMoney(data.resumen.totalDescuentos)}</strong>
+                <strong>{formatMoney(data.resumen.total_descuentos)}</strong>
               </div>
             </section>
 
@@ -119,7 +119,7 @@ export function ComprobanteCierre({ cajaId, onClose }: { cajaId: number; onClose
                   </tr>
                   <tr>
                     <td>Efectivo esperado al cierre</td>
-                    <td>{formatMoney(data.resumen.efectivoEsperado)}</td>
+                    <td>{formatMoney(data.resumen.efectivo_esperado)}</td>
                   </tr>
                   {data.caja.monto_final_declarado != null && (
                     <>
@@ -129,8 +129,8 @@ export function ComprobanteCierre({ cajaId, onClose }: { cajaId: number; onClose
                       </tr>
                       <tr>
                         <td>Diferencia</td>
-                        <td className={data.caja.monto_final_declarado === data.resumen.efectivoEsperado ? 'ok' : 'error'}>
-                          {formatMoney(data.caja.monto_final_declarado - data.resumen.efectivoEsperado)}
+                        <td className={data.caja.monto_final_declarado === data.resumen.efectivo_esperado ? 'ok' : 'error'}>
+                          {formatMoney(data.caja.monto_final_declarado - data.resumen.efectivo_esperado)}
                         </td>
                       </tr>
                     </>
@@ -154,7 +154,7 @@ export function ComprobanteCierre({ cajaId, onClose }: { cajaId: number; onClose
                     <tr key={t.medio_pago}>
                       <td>{MEDIO_PAGO_LABEL[t.medio_pago] ?? t.medio_pago}</td>
                       <td>{formatMoney(t.total)}</td>
-                      <td>{porcentaje(t.total, data.resumen.totalVentas)}</td>
+                      <td>{porcentaje(t.total, data.resumen.total_ventas)}</td>
                     </tr>
                   ))}
                   {data.resumen.totales.length === 0 && (
@@ -183,7 +183,7 @@ export function ComprobanteCierre({ cajaId, onClose }: { cajaId: number; onClose
                       <td>{CANAL_LABEL[c.canal] ?? c.canal}</td>
                       <td>{c.cantidad_ventas}</td>
                       <td>{formatMoney(c.total_vendido)}</td>
-                      <td>{porcentaje(c.total_vendido, data.resumen.totalVentas)}</td>
+                      <td>{porcentaje(c.total_vendido, data.resumen.total_ventas)}</td>
                     </tr>
                   ))}
                   {data.porCanal.length === 0 && (
@@ -212,7 +212,7 @@ export function ComprobanteCierre({ cajaId, onClose }: { cajaId: number; onClose
                       <td>{c.categoria}</td>
                       <td>{c.cantidad_vendida}</td>
                       <td>{formatMoney(c.total_vendido)}</td>
-                      <td>{porcentaje(c.total_vendido, data.resumen.totalVentas)}</td>
+                      <td>{porcentaje(c.total_vendido, data.resumen.total_ventas)}</td>
                     </tr>
                   ))}
                   {data.porCategoria.length === 0 && (
