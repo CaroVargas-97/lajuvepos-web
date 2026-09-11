@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useAuth } from '../auth/AuthContext'
-import type { Cliente } from '../../lib/types'
+import type { Cliente, Producto } from '../../lib/types'
 import { formatDateTime, formatMoney } from '../../lib/format'
 import { api } from '../../lib/api'
 import { NotaCreditoImprimible } from './NotaCreditoImprimible'
@@ -8,6 +8,7 @@ import { NotaCreditoImprimible } from './NotaCreditoImprimible'
 interface NotaCredito {
   id: number
   cliente_nombre: string
+  producto_nombre: string | null
   monto: number
   motivo: string
   fecha: string
@@ -17,15 +18,17 @@ interface NotaCredito {
 export function ClientesPage() {
   const { usuario } = useAuth()
   const [clientes, setClientes] = useState<Cliente[]>([])
+  const [productos, setProductos] = useState<Producto[]>([])
   const [notas, setNotas] = useState<NotaCredito[]>([])
   const [form, setForm] = useState({ nombre: '', telefono: '' })
-  const [notaForm, setNotaForm] = useState({ clienteId: '', monto: '', motivo: '' })
+  const [notaForm, setNotaForm] = useState({ clienteId: '', productoId: '', monto: '', motivo: '' })
   const [error, setError] = useState<string | null>(null)
   const [notaImprimir, setNotaImprimir] = useState<NotaCredito | null>(null)
 
   async function cargar() {
-    const [cli, nc] = await Promise.all([api.clientes.listar(), api.notasCredito.listar()])
+    const [cli, prod, nc] = await Promise.all([api.clientes.listar(), api.productos.listar(), api.notasCredito.listar()])
     setClientes(cli)
+    setProductos(prod)
     setNotas(nc)
   }
 
@@ -61,6 +64,7 @@ export function ClientesPage() {
     const res = await api.notasCredito.crear({
       clienteId: Number(notaForm.clienteId),
       ventaId: null,
+      productoId: notaForm.productoId ? Number(notaForm.productoId) : null,
       monto,
       motivo: notaForm.motivo,
       usuarioId: usuario.id
@@ -69,7 +73,7 @@ export function ClientesPage() {
       setError(res.error ?? 'No se pudo emitir la nota de crédito')
       return
     }
-    setNotaForm({ clienteId: '', monto: '', motivo: '' })
+    setNotaForm({ clienteId: '', productoId: '', monto: '', motivo: '' })
     cargar()
   }
 
@@ -114,6 +118,14 @@ export function ClientesPage() {
             </option>
           ))}
         </select>
+        <select value={notaForm.productoId} onChange={(e) => setNotaForm({ ...notaForm, productoId: e.target.value })}>
+          <option value="">Producto (opcional)...</option>
+          {productos.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.nombre}
+            </option>
+          ))}
+        </select>
         <input placeholder="Monto" type="number" value={notaForm.monto} onChange={(e) => setNotaForm({ ...notaForm, monto: e.target.value })} />
         <input placeholder="Motivo (devolución, etc.)" value={notaForm.motivo} onChange={(e) => setNotaForm({ ...notaForm, motivo: e.target.value })} />
         <button className="primary" type="submit">
@@ -128,6 +140,7 @@ export function ClientesPage() {
           <tr>
             <th>Fecha</th>
             <th>Cliente</th>
+            <th>Producto</th>
             <th>Monto</th>
             <th>Motivo</th>
             <th></th>
@@ -138,6 +151,7 @@ export function ClientesPage() {
             <tr key={n.id}>
               <td>{formatDateTime(n.fecha)}</td>
               <td>{n.cliente_nombre}</td>
+              <td>{n.producto_nombre ?? '-'}</td>
               <td>{formatMoney(n.monto)}</td>
               <td>{n.motivo}</td>
               <td>
@@ -149,7 +163,7 @@ export function ClientesPage() {
           ))}
           {notas.length === 0 && (
             <tr>
-              <td colSpan={5}>No hay notas de crédito emitidas.</td>
+              <td colSpan={6}>No hay notas de crédito emitidas.</td>
             </tr>
           )}
         </tbody>
