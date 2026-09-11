@@ -23,14 +23,14 @@ export async function movimientos(req: Request, res: Response) {
 }
 
 export async function crearNotaCredito(req: Request, res: Response) {
-  const { clienteId, ventaId, monto, motivo, usuarioId } = req.body
+  const { clienteId, ventaId, productoId, monto, motivo, usuarioId } = req.body
   if (!(Number.isFinite(monto) && monto > 0)) return res.json({ ok: false, error: 'El monto debe ser mayor a 0' })
 
   const cliente = await prisma.cliente.findUnique({ where: { id: clienteId } })
   if (!cliente) return res.json({ ok: false, error: 'Cliente no encontrado' })
 
   const id = await prisma.$transaction(async (tx) => {
-    const nota = await tx.notaCredito.create({ data: { ventaId, clienteId, monto, motivo, usuarioId } })
+    const nota = await tx.notaCredito.create({ data: { ventaId, clienteId, productoId, monto, motivo, usuarioId } })
     await tx.cliente.update({ where: { id: clienteId }, data: { saldoCuentaCorriente: { increment: monto } } })
     await tx.cuentaCorrienteMovimiento.create({
       data: { clienteId, tipo: 'nota_credito', monto, referencia: `Nota de crédito #${nota.id}`, usuarioId }
@@ -43,8 +43,8 @@ export async function crearNotaCredito(req: Request, res: Response) {
 
 export async function listarNotasCredito(_req: Request, res: Response) {
   const notas = await prisma.notaCredito.findMany({
-    include: { cliente: { select: { nombre: true } } },
+    include: { cliente: { select: { nombre: true } }, producto: { select: { nombre: true } } },
     orderBy: { id: 'desc' }
   })
-  res.json(notas.map((n) => ({ ...n, cliente_nombre: n.cliente.nombre })))
+  res.json(notas.map((n) => ({ ...n, cliente_nombre: n.cliente.nombre, producto_nombre: n.producto?.nombre ?? null })))
 }
