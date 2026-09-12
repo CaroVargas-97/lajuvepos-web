@@ -177,9 +177,10 @@ export async function comprobante(req: Request, res: Response) {
 }
 
 // Borra un cierre de caja (solo si ya está cerrada, para no borrar una caja en uso) junto
-// con sus ventas, pagos e ítems. OJO: esto NO revierte el stock que descontaron esas
-// ventas ni los saldos de cuenta corriente que se usaron — es para limpiar datos de
-// prueba, no para "deshacer" una venta real ya facturada.
+// con sus ventas, pagos e ítems, y revierte el stock descontado y el saldo de cuenta
+// corriente usado en esas ventas, para dejar todo como si esas ventas nunca hubieran
+// pasado. Es para limpiar datos de prueba, no para "deshacer" una venta real ya cobrada
+// a un cliente (si el cliente ya se llevó la mercadería, el stock repuesto no es real).
 export async function eliminar(req: Request, res: Response) {
   const id = Number(req.params.id)
   const caja = await prisma.caja.findUnique({ where: { id } })
@@ -187,10 +188,33 @@ export async function eliminar(req: Request, res: Response) {
   if (caja.estado !== 'cerrada') return res.json({ ok: false, error: 'Solo se pueden borrar cajas ya cerradas' })
 
   await prisma.$transaction(async (tx) => {
-    const ventas = await tx.venta.findMany({ where: { cajaId: id }, select: { id: true } })
+    const ventas = await tx.venta.findMany({ where: { cajaId: id }, select: { id: true, clienteId: true } })
     const ventaIds = ventas.map((v) => v.id)
 
     if (ventaIds.length > 0) {
+      const items = await tx.ventaItem.findMany({ where: { ventaId: { in: ventaIds } }, select: { productoId: true, cantidad: true } })
+      for (const item of items) {
+        await tx.producto.update({ where: { id: item.productoId }, data: { stockActual: { increment: item.cantidad } } })
+      }
+
+      const pagosCtaCte = await tx.ventaPago.findMany({
+        where: { ventaId: { in: ventaIds }, medioPago: 'cuenta_corriente' }
+      })
+      for (const pago of pagosCtaCte) {
+        const venta = ventas.find((v) => v.id === pago.ventaId)
+        if (venta?.clienteId) {
+          await tx.cliente.update({
+            where: { id: venta.clienteId },
+            data: { saldoCuentaCorriente: { increment: pago.monto } }
+          })
+        }
+      }
+
+      for (const ventaId of ventaIds) {
+        await tx.movimientoStock.deleteMany({ where: { motivo: `Venta #${ventaId}` } })
+        await tx.cuentaCorrienteMovimiento.deleteMany({ where: { referencia: `Venta #${ventaId}` } })
+      }
+
       await tx.notaCredito.deleteMany({ where: { ventaId: { in: ventaIds } } })
       await tx.ventaPago.deleteMany({ where: { ventaId: { in: ventaIds } } })
       await tx.ventaItem.deleteMany({ where: { ventaId: { in: ventaIds } } })
