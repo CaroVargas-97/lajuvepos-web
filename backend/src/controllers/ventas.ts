@@ -10,6 +10,12 @@ const EPSILON = 0.01
 // directo a la API.
 const esPastaDelDia = (nombre: string) => nombre.trim().toLowerCase() === 'pasta del dia'
 
+// Como "Pasta del día" cambia de plato (y de precio) todos los días, un costo fijo en
+// pesos no tiene sentido: en vez de eso estimamos el costo como un porcentaje del precio
+// de venta de esa porción, para que la rentabilidad se mantenga proporcional aunque el
+// precio varíe mucho de un día a otro.
+const PORCENTAJE_COSTO_PASTA_DEL_DIA = 0.3
+
 export async function crear(req: Request, res: Response) {
   const { cajaId, usuarioId, canal, clienteId, items, pagos, descuento } = req.body as {
     cajaId: number
@@ -74,6 +80,7 @@ export async function crear(req: Request, res: Response) {
       const prod = productos.find((p) => p.id === item.productoId)!
       const precioUnitario = precioEfectivo(item)
       const subtotal = item.cantidad * precioUnitario
+      const costoUnitario = esPastaDelDia(prod.nombre) ? precioUnitario * PORCENTAJE_COSTO_PASTA_DEL_DIA : prod.costo
 
       await tx.ventaItem.create({
         data: {
@@ -81,7 +88,7 @@ export async function crear(req: Request, res: Response) {
           productoId: item.productoId,
           cantidad: item.cantidad,
           precioUnitario,
-          costoUnitario: prod.costo,
+          costoUnitario,
           subtotal,
           nota: item.nota?.trim() || null
         }
