@@ -102,6 +102,29 @@ export function CajaPage() {
     }
   }
 
+  async function borrarCaja(c: Caja) {
+    const confirmado = window.confirm(
+      `¿Borrar el cierre de caja del ${formatDateTime(c.fecha_apertura)}?\n\n` +
+        'Esto elimina permanentemente esa caja y todas sus ventas, pagos y notas de crédito asociadas.\n' +
+        'OJO: no revierte el stock descontado ni los saldos de cuenta corriente usados en esas ventas.\n' +
+        'Usalo solo para limpiar pruebas, no para deshacer una venta real.'
+    )
+    if (!confirmado) return
+
+    const res = await api.caja.eliminar(c.id)
+    if (!res.ok) {
+      setError(res.error ?? 'No se pudo borrar la caja')
+      return
+    }
+    if (cajaVentasId === c.id) {
+      setCajaVentasId(null)
+      setVentas([])
+      setVentaExpandida(null)
+      setDetalleVenta(null)
+    }
+    cargar()
+  }
+
   async function verVentasDeCaja(cajaId: number) {
     if (cajaVentasId === cajaId) return
     setCajaVentasId(cajaId)
@@ -512,6 +535,7 @@ export function CajaPage() {
                 <th>Declarado</th>
                 <th>Estado</th>
                 <th>Horario</th>
+                {usuario?.rol === 'admin' && <th></th>}
               </tr>
             </thead>
             <tbody>
@@ -536,6 +560,21 @@ export function CajaPage() {
                     <td className={puntual === false ? 'error' : puntual === true ? 'ok' : ''}>
                       {puntual === null ? '-' : puntual ? 'A horario' : 'Tarde'}
                     </td>
+                    {usuario?.rol === 'admin' && (
+                      <td>
+                        {c.estado === 'cerrada' && (
+                          <button
+                            className="link"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              borrarCaja(c)
+                            }}
+                          >
+                            borrar
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 )
               })}
