@@ -201,7 +201,11 @@ export function StockPage() {
           onChange={(e) => setForm({ ...form, precioVenta: e.target.value })}
         />
         <input placeholder="Costo" type="number" value={form.costo} onChange={(e) => setForm({ ...form, costo: e.target.value })} />
-        <input placeholder="Unidad" value={form.unidad} onChange={(e) => setForm({ ...form, unidad: e.target.value })} />
+        <select value={form.unidad} onChange={(e) => setForm({ ...form, unidad: e.target.value })}>
+          <option value="unidad">Por unidad</option>
+          <option value="kg">Por kilo</option>
+          <option value="porción">Por porción</option>
+        </select>
         <input
           placeholder="Stock inicial"
           type="number"
@@ -305,7 +309,11 @@ export function StockPage() {
             </label>
             <label>
               Unidad
-              <input value={edicion.unidad} onChange={(e) => setEdicion({ ...edicion, unidad: e.target.value })} />
+              <select value={edicion.unidad} onChange={(e) => setEdicion({ ...edicion, unidad: e.target.value })}>
+                <option value="unidad">Por unidad</option>
+                <option value="kg">Por kilo</option>
+                <option value="porción">Por porción</option>
+              </select>
             </label>
             <label>
               Stock actual
