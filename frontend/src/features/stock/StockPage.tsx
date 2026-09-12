@@ -1,8 +1,60 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import type { Producto } from '../../lib/types'
 import { formatMoney } from '../../lib/format'
 import { api } from '../../lib/api'
+
+const NUEVA_CATEGORIA = '__nueva__'
+
+// Desplegable con las categorías que ya existen en Stock + opción de crear una nueva,
+// para que no se terminen creando duplicados por typeo (ej. "Varios" vs "varios").
+function SelectorCategoria({
+  categorias,
+  value,
+  onChange
+}: {
+  categorias: string[]
+  value: string
+  onChange: (valor: string) => void
+}) {
+  const esCategoriaNueva = value !== '' && !categorias.includes(value)
+  const [creandoNueva, setCreandoNueva] = useState(esCategoriaNueva)
+
+  if (creandoNueva || esCategoriaNueva) {
+    return (
+      <input
+        placeholder="Nombre de la nueva categoría"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={() => {
+          if (!value.trim()) setCreandoNueva(false)
+        }}
+      />
+    )
+  }
+
+  return (
+    <select
+      value={value}
+      onChange={(e) => {
+        if (e.target.value === NUEVA_CATEGORIA) {
+          setCreandoNueva(true)
+          onChange('')
+        } else {
+          onChange(e.target.value)
+        }
+      }}
+    >
+      <option value="">Sin categoría</option>
+      {categorias.map((c) => (
+        <option key={c} value={c}>
+          {c}
+        </option>
+      ))}
+      <option value={NUEVA_CATEGORIA}>+ Crear nueva categoría...</option>
+    </select>
+  )
+}
 
 const initialForm = {
   nombre: '',
@@ -39,6 +91,11 @@ export function StockPage() {
   useEffect(() => {
     cargar()
   }, [])
+
+  const categoriasExistentes = useMemo(
+    () => Array.from(new Set(productos.map((p) => p.categoria).filter((c): c is string => !!c))).sort((a, b) => a.localeCompare(b)),
+    [productos]
+  )
 
   async function crearProducto(e: FormEvent) {
     e.preventDefault()
@@ -124,7 +181,11 @@ export function StockPage() {
 
       <form className="form-inline" onSubmit={crearProducto}>
         <input placeholder="Nombre" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
-        <input placeholder="Categoría" value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })} />
+        <SelectorCategoria
+          categorias={categoriasExistentes}
+          value={form.categoria}
+          onChange={(categoria) => setForm({ ...form, categoria })}
+        />
         <input
           placeholder="Precio venta"
           type="number"
@@ -194,7 +255,11 @@ export function StockPage() {
             </label>
             <label>
               Categoría
-              <input value={edicion.categoria} onChange={(e) => setEdicion({ ...edicion, categoria: e.target.value })} />
+              <SelectorCategoria
+                categorias={categoriasExistentes}
+                value={edicion.categoria}
+                onChange={(categoria) => setEdicion({ ...edicion, categoria })}
+              />
             </label>
             <label>
               Precio de venta
