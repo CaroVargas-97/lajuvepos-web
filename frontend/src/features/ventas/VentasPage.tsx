@@ -246,16 +246,27 @@ export function VentasPage() {
             <li key={item.producto.id}>
               <span className="nombre">
                 {item.producto.nombre}
-                {esPorKilo(item.producto) && <small> (kg)</small>}
+                {esPorKilo(item.producto) && <small> (en gramos)</small>}
               </span>
-              <input
-                type="number"
-                min={esPorKilo(item.producto) ? 0.001 : 1}
-                step={esPorKilo(item.producto) ? 0.001 : 1}
-                max={item.producto.stock_actual}
-                value={item.cantidad}
-                onChange={(e) => cambiarCantidad(item.producto.id, Number(e.target.value))}
-              />
+              {esPorKilo(item.producto) ? (
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  max={Math.round(item.producto.stock_actual * 1000)}
+                  value={Math.round(item.cantidad * 1000)}
+                  onChange={(e) => cambiarCantidad(item.producto.id, Number(e.target.value) / 1000)}
+                />
+              ) : (
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  max={item.producto.stock_actual}
+                  value={item.cantidad}
+                  onChange={(e) => cambiarCantidad(item.producto.id, Number(e.target.value))}
+                />
+              )}
               <span className="subtotal">{formatMoney(item.cantidad * item.producto.precio_venta)}</span>
               <button className="link" onClick={() => quitarItem(item.producto.id)}>
                 quitar
