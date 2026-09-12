@@ -176,6 +176,34 @@ export async function comprobante(req: Request, res: Response) {
   })
 }
 
+// Borra un cierre de caja (solo si ya está cerrada, para no borrar una caja en uso) junto
+// con sus ventas, pagos e ítems. OJO: esto NO revierte el stock que descontaron esas
+// ventas ni los saldos de cuenta corriente que se usaron — es para limpiar datos de
+// prueba, no para "deshacer" una venta real ya facturada.
+export async function eliminar(req: Request, res: Response) {
+  const id = Number(req.params.id)
+  const caja = await prisma.caja.findUnique({ where: { id } })
+  if (!caja) return res.json({ ok: false, error: 'La caja no existe' })
+  if (caja.estado !== 'cerrada') return res.json({ ok: false, error: 'Solo se pueden borrar cajas ya cerradas' })
+
+  await prisma.$transaction(async (tx) => {
+    const ventas = await tx.venta.findMany({ where: { cajaId: id }, select: { id: true } })
+    const ventaIds = ventas.map((v) => v.id)
+
+    if (ventaIds.length > 0) {
+      await tx.notaCredito.deleteMany({ where: { ventaId: { in: ventaIds } } })
+      await tx.ventaPago.deleteMany({ where: { ventaId: { in: ventaIds } } })
+      await tx.ventaItem.deleteMany({ where: { ventaId: { in: ventaIds } } })
+      await tx.venta.deleteMany({ where: { id: { in: ventaIds } } })
+    }
+
+    await tx.movimientoCaja.deleteMany({ where: { cajaId: id } })
+    await tx.caja.delete({ where: { id } })
+  })
+
+  res.json({ ok: true })
+}
+
 export async function historial(_req: Request, res: Response) {
   const cajas = await prisma.caja.findMany({
     include: { usuario: USUARIO_PUBLICO, usuarioCierre: USUARIO_PUBLICO },
