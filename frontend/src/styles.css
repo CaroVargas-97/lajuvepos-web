@@ -334,7 +334,7 @@ label {
 
 .carrito-lista li {
   display: grid;
-  grid-template-columns: 1fr 90px 80px auto;
+  grid-template-columns: 1fr 150px 80px auto;
   align-items: center;
   gap: 0.5rem;
 }
@@ -348,6 +348,31 @@ label {
   font-weight: 600;
   text-align: center;
   padding: 0.5rem 0.25rem;
+}
+
+.peso-input {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.peso-unidad-toggle {
+  display: flex;
+  gap: 0.15rem;
+  flex-shrink: 0;
+}
+
+.peso-unidad-toggle button {
+  background: white;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+
+.peso-unidad-toggle button.primary {
+  padding: 0.35rem 0.5rem;
 }
 
 .total-row {
