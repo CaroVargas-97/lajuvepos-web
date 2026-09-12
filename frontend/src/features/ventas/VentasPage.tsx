@@ -52,7 +52,8 @@ export function VentasPage() {
   const [busqueda, setBusqueda] = useState('')
   const [categoria, setCategoria] = useState<string>('todas')
   const [descuento, setDescuento] = useState('0')
-  const [gramosTexto, setGramosTexto] = useState<Record<number, string>>({})
+  const [pesoTexto, setPesoTexto] = useState<Record<number, string>>({})
+  const [unidadPeso, setUnidadPeso] = useState<Record<number, 'kg' | 'g'>>({})
 
   async function cargar() {
     const [prods, cajaActual, cli] = await Promise.all([
@@ -132,7 +133,8 @@ export function VentasPage() {
         return prev.map((i) => (i.producto.id === producto.id ? { ...i, cantidad: i.cantidad + 1 } : i))
       }
       if (esPorKilo(producto)) {
-        setGramosTexto((g) => ({ ...g, [producto.id]: '' }))
+        setPesoTexto((g) => ({ ...g, [producto.id]: '' }))
+        setUnidadPeso((u) => ({ ...u, [producto.id]: 'kg' }))
         return [...prev, { producto, cantidad: 0 }]
       }
       return [...prev, { producto, cantidad: 1 }]
@@ -143,19 +145,29 @@ export function VentasPage() {
     setCarrito((prev) => prev.map((i) => (i.producto.id === productoId ? { ...i, cantidad: Math.max(1, cantidad) } : i)))
   }
 
-  // Para productos por kilo el campo queda en blanco hasta que el cajero escribe los
-  // gramos: si borrase el rectángulo o forzáramos un mínimo automático, el ítem
-  // desaparecería del carrito o saltaría solo a 1 gramo mientras todavía está escribiendo.
-  function cambiarGramos(productoId: number, texto: string) {
-    setGramosTexto((prev) => ({ ...prev, [productoId]: texto }))
-    const gramos = Number(texto)
-    const cantidad = texto.trim() === '' || Number.isNaN(gramos) || gramos < 0 ? 0 : gramos / 1000
+  // Para productos por kilo el campo queda en blanco hasta que el cajero escribe el peso
+  // (a elección, en kilos o en gramos): si borrase el rectángulo o forzáramos un mínimo
+  // automático, el ítem desaparecería del carrito o saltaría solo mientras está escribiendo.
+  function cambiarPeso(productoId: number, texto: string, unidad: 'kg' | 'g') {
+    setPesoTexto((prev) => ({ ...prev, [productoId]: texto }))
+    const valor = Number(texto)
+    const invalido = texto.trim() === '' || Number.isNaN(valor) || valor < 0
+    const cantidad = invalido ? 0 : unidad === 'kg' ? valor : valor / 1000
     setCarrito((prev) => prev.map((i) => (i.producto.id === productoId ? { ...i, cantidad } : i)))
+  }
+
+  function cambiarUnidadPeso(productoId: number, unidad: 'kg' | 'g') {
+    setUnidadPeso((prev) => ({ ...prev, [productoId]: unidad }))
+    cambiarPeso(productoId, pesoTexto[productoId] ?? '', unidad)
   }
 
   function quitarItem(productoId: number) {
     setCarrito((prev) => prev.filter((i) => i.producto.id !== productoId))
-    setGramosTexto((prev) => {
+    setPesoTexto((prev) => {
+      const { [productoId]: _quitado, ...resto } = prev
+      return resto
+    })
+    setUnidadPeso((prev) => {
       const { [productoId]: _quitado, ...resto } = prev
       return resto
     })
@@ -168,7 +180,7 @@ export function VentasPage() {
     }
     if (!carrito.length) return
     if (carrito.some((i) => i.cantidad <= 0)) {
-      setMensaje('Completá la cantidad (en gramos) de todos los productos del carrito.')
+      setMensaje('Completá el peso de todos los productos del carrito.')
       return
     }
     if (Math.abs(restante) > 0.01) {
@@ -205,7 +217,8 @@ export function VentasPage() {
 
     setMensaje(`Venta registrada. Total: ${formatMoney(res.total ?? 0)}`)
     setCarrito([])
-    setGramosTexto({})
+    setPesoTexto({})
+    setUnidadPeso({})
     setPagos([{ medioPago: 'efectivo', tarjeta: '', monto: '0' }])
     setDescuento('0')
     cargar()
@@ -265,21 +278,35 @@ export function VentasPage() {
         <ul className="carrito-lista">
           {carrito.map((item) => (
             <li key={item.producto.id}>
-              <span className="nombre">
-                {item.producto.nombre}
-                {esPorKilo(item.producto) && <small> (en gramos)</small>}
-              </span>
+              <span className="nombre">{item.producto.nombre}</span>
               {esPorKilo(item.producto) ? (
-                <input
-                  className="cantidad-gramos"
-                  type="number"
-                  min={1}
-                  step={1}
-                  placeholder="gramos"
-                  max={Math.round(item.producto.stock_actual * 1000)}
-                  value={gramosTexto[item.producto.id] ?? ''}
-                  onChange={(e) => cambiarGramos(item.producto.id, e.target.value)}
-                />
+                <div className="peso-input">
+                  <input
+                    className="cantidad-gramos"
+                    type="number"
+                    min={0}
+                    step="any"
+                    placeholder="peso"
+                    value={pesoTexto[item.producto.id] ?? ''}
+                    onChange={(e) => cambiarPeso(item.producto.id, e.target.value, unidadPeso[item.producto.id] ?? 'kg')}
+                  />
+                  <div className="peso-unidad-toggle">
+                    <button
+                      type="button"
+                      className={(unidadPeso[item.producto.id] ?? 'kg') === 'kg' ? 'primary' : ''}
+                      onClick={() => cambiarUnidadPeso(item.producto.id, 'kg')}
+                    >
+                      kg
+                    </button>
+                    <button
+                      type="button"
+                      className={unidadPeso[item.producto.id] === 'g' ? 'primary' : ''}
+                      onClick={() => cambiarUnidadPeso(item.producto.id, 'g')}
+                    >
+                      g
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <input
                   type="number"
