@@ -375,6 +375,18 @@ label {
   padding: 0.35rem 0.5rem;
 }
 
+.item-pasta-del-dia {
+  background: #fbf3ea;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem;
+}
+
+.nota-item {
+  grid-column: 1 / -1;
+  margin-top: 0.35rem;
+}
+
 .total-row {
   display: flex;
   justify-content: space-between;
