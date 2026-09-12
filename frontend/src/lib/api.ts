@@ -61,6 +61,7 @@ export const api = {
       withResult(client.post(`/caja/${cajaId}/cerrar`, { montoFinalDeclarado, usuarioId, comentario })),
     resumen: (cajaId: number) => withResult(client.get(`/caja/${cajaId}/resumen`)),
     comprobante: (cajaId: number) => withResult(client.get(`/caja/${cajaId}/comprobante`)),
+    eliminar: (cajaId: number) => withResult(client.delete(`/caja/${cajaId}`)),
     historial: () => get<Caja[]>('/caja/historial'),
     cierresPorDia: (desde: string, hasta: string) =>
       get<{ dia: string; total_vendido: number; cantidad_ventas: number }[]>('/caja/cierres-por-dia', { desde, hasta }),
