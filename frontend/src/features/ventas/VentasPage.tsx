@@ -52,6 +52,7 @@ export function VentasPage() {
   const [busqueda, setBusqueda] = useState('')
   const [categoria, setCategoria] = useState<string>('todas')
   const [descuento, setDescuento] = useState('0')
+  const [gramosTexto, setGramosTexto] = useState<Record<number, string>>({})
 
   async function cargar() {
     const [prods, cajaActual, cli] = await Promise.all([
@@ -127,22 +128,37 @@ export function VentasPage() {
     setCarrito((prev) => {
       const existente = prev.find((i) => i.producto.id === producto.id)
       if (existente) {
+        if (esPorKilo(producto)) return prev
         return prev.map((i) => (i.producto.id === producto.id ? { ...i, cantidad: i.cantidad + 1 } : i))
+      }
+      if (esPorKilo(producto)) {
+        setGramosTexto((g) => ({ ...g, [producto.id]: '' }))
+        return [...prev, { producto, cantidad: 0 }]
       }
       return [...prev, { producto, cantidad: 1 }]
     })
   }
 
   function cambiarCantidad(productoId: number, cantidad: number) {
-    setCarrito((prev) =>
-      prev
-        .map((i) => (i.producto.id === productoId ? { ...i, cantidad: Math.max(esPorKilo(i.producto) ? 0.001 : 1, cantidad) } : i))
-        .filter((i) => i.cantidad > 0)
-    )
+    setCarrito((prev) => prev.map((i) => (i.producto.id === productoId ? { ...i, cantidad: Math.max(1, cantidad) } : i)))
+  }
+
+  // Para productos por kilo el campo queda en blanco hasta que el cajero escribe los
+  // gramos: si borrase el rectángulo o forzáramos un mínimo automático, el ítem
+  // desaparecería del carrito o saltaría solo a 1 gramo mientras todavía está escribiendo.
+  function cambiarGramos(productoId: number, texto: string) {
+    setGramosTexto((prev) => ({ ...prev, [productoId]: texto }))
+    const gramos = Number(texto)
+    const cantidad = texto.trim() === '' || Number.isNaN(gramos) || gramos < 0 ? 0 : gramos / 1000
+    setCarrito((prev) => prev.map((i) => (i.producto.id === productoId ? { ...i, cantidad } : i)))
   }
 
   function quitarItem(productoId: number) {
     setCarrito((prev) => prev.filter((i) => i.producto.id !== productoId))
+    setGramosTexto((prev) => {
+      const { [productoId]: _quitado, ...resto } = prev
+      return resto
+    })
   }
 
   async function confirmarVenta() {
@@ -151,6 +167,10 @@ export function VentasPage() {
       return
     }
     if (!carrito.length) return
+    if (carrito.some((i) => i.cantidad <= 0)) {
+      setMensaje('Completá la cantidad (en gramos) de todos los productos del carrito.')
+      return
+    }
     if (Math.abs(restante) > 0.01) {
       setMensaje(
         restante > 0
@@ -185,6 +205,7 @@ export function VentasPage() {
 
     setMensaje(`Venta registrada. Total: ${formatMoney(res.total ?? 0)}`)
     setCarrito([])
+    setGramosTexto({})
     setPagos([{ medioPago: 'efectivo', tarjeta: '', monto: '0' }])
     setDescuento('0')
     cargar()
@@ -250,12 +271,14 @@ export function VentasPage() {
               </span>
               {esPorKilo(item.producto) ? (
                 <input
+                  className="cantidad-gramos"
                   type="number"
                   min={1}
                   step={1}
+                  placeholder="gramos"
                   max={Math.round(item.producto.stock_actual * 1000)}
-                  value={Math.round(item.cantidad * 1000)}
-                  onChange={(e) => cambiarCantidad(item.producto.id, Number(e.target.value) / 1000)}
+                  value={gramosTexto[item.producto.id] ?? ''}
+                  onChange={(e) => cambiarGramos(item.producto.id, e.target.value)}
                 />
               ) : (
                 <input
