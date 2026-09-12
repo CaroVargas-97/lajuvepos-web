@@ -334,13 +334,20 @@ label {
 
 .carrito-lista li {
   display: grid;
-  grid-template-columns: 1fr 60px 80px auto;
+  grid-template-columns: 1fr 90px 80px auto;
   align-items: center;
   gap: 0.5rem;
 }
 
 .carrito-lista input {
   width: 100%;
+}
+
+.cantidad-gramos {
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-align: center;
+  padding: 0.5rem 0.25rem;
 }
 
 .total-row {
