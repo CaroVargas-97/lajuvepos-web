@@ -45,6 +45,46 @@ function descargarCSV(nombreArchivo: string, filas: (string | number)[][]) {
   URL.revokeObjectURL(url)
 }
 
+// Calcula el período inmediatamente anterior, de la misma duración, para poder
+// comparar "esta semana vs. la anterior" sin que el usuario tenga que elegirlo a mano.
+function periodoAnterior(desde: string, hasta: string) {
+  const inicio = new Date(desde + 'T00:00:00')
+  const fin = new Date(hasta + 'T00:00:00')
+  const dias = Math.round((fin.getTime() - inicio.getTime()) / 86400000) + 1
+  const finAnterior = new Date(inicio.getTime() - 86400000)
+  const inicioAnterior = new Date(finAnterior.getTime() - (dias - 1) * 86400000)
+  return { desde: inicioAnterior.toISOString().slice(0, 10), hasta: finAnterior.toISOString().slice(0, 10) }
+}
+
+function Variacion({ actual, anterior }: { actual: number; anterior: number }) {
+  if (!anterior) return null
+  const cambio = ((actual - anterior) / anterior) * 100
+  const subio = cambio >= 0
+  return (
+    <span className={`variacion ${subio ? 'variacion-up' : 'variacion-down'}`}>
+      {subio ? '▲' : '▼'} {Math.abs(cambio).toFixed(0)}% vs. período anterior
+    </span>
+  )
+}
+
+function BarrasComparativas({ filas }: { filas: { etiqueta: string; valor: number }[] }) {
+  const max = Math.max(1, ...filas.map((f) => f.valor))
+  return (
+    <div className="barras-chart no-imprimir">
+      {filas.map((f) => (
+        <div className="barra-fila" key={f.etiqueta}>
+          <span className="barra-label">{f.etiqueta}</span>
+          <div className="barra-track">
+            <div className="barra-fill" style={{ width: `${(f.valor / max) * 100}%` }} />
+          </div>
+          <span className="barra-valor">{formatMoney(f.valor)}</span>
+        </div>
+      ))}
+      {filas.length === 0 && <p className="ayuda">Sin datos para graficar en este período.</p>}
+    </div>
+  )
+}
+
 export function ReportesPage() {
   const [tab, setTab] = useState<Tab>('rentabilidad')
   const [desde, setDesde] = useState(todayISO())
@@ -57,17 +97,21 @@ export function ReportesPage() {
   const [porTarjeta, setPorTarjeta] = useState<
     { medio_pago: string; tarjeta: string; cantidad_pagos: number; total_vendido: number }[]
   >([])
+  const [anterior, setAnterior] = useState({ total_vendido: 0, ganancia: 0, cantidad_ventas: 0, ticket_promedio: 0 })
   const [error, setError] = useState<string | null>(null)
 
   async function cargar() {
     setError(null)
     try {
-      const [rent, canal, medioPago, tarjeta, categoria] = await Promise.all([
+      const prev = periodoAnterior(desde, hasta)
+      const [rent, canal, medioPago, tarjeta, categoria, rentAnt, canalAnt] = await Promise.all([
         api.reportes.rentabilidad(desde, hasta),
         api.reportes.ventasPorCanal(desde, hasta),
         api.reportes.ventasPorMedioPago(desde, hasta),
         api.reportes.ventasPorTarjeta(desde, hasta),
-        api.reportes.ventasPorCategoria(desde, hasta)
+        api.reportes.ventasPorCategoria(desde, hasta),
+        api.reportes.rentabilidad(prev.desde, prev.hasta),
+        api.reportes.ventasPorCanal(prev.desde, prev.hasta)
       ])
       // Si el backend devuelve algo inesperado (ej. un reinicio del servidor a mitad de
       // pedido), usamos valores por defecto en vez de romper toda la pantalla.
@@ -77,6 +121,15 @@ export function ReportesPage() {
       setPorMedioPago(medioPago ?? [])
       setPorTarjeta(tarjeta ?? [])
       setPorCategoria(categoria ?? [])
+
+      const cantidadAnt = (canalAnt ?? []).reduce((acc: number, c: { cantidad_ventas: number }) => acc + c.cantidad_ventas, 0)
+      const totalAnt = rentAnt?.totales?.total_vendido ?? 0
+      setAnterior({
+        total_vendido: totalAnt,
+        ganancia: rentAnt?.totales?.ganancia ?? 0,
+        cantidad_ventas: cantidadAnt,
+        ticket_promedio: cantidadAnt > 0 ? totalAnt / cantidadAnt : 0
+      })
     } catch {
       setError('No se pudieron cargar los reportes. Probá de nuevo en unos segundos.')
     }
@@ -90,6 +143,21 @@ export function ReportesPage() {
   const ticketPromedio = cantidadVentas > 0 ? totales.total_vendido / cantidadVentas : 0
   const margen = totales.total_vendido > 0 ? (totales.ganancia / totales.total_vendido) * 100 : 0
   const productoTop = useMemo(() => filas.slice().sort((a, b) => b.total_vendido - a.total_vendido)[0], [filas])
+
+  const barrasCanal = useMemo(
+    () => porCanal.map((c) => ({ etiqueta: CANAL_LABEL[c.canal] ?? c.canal, valor: c.total_vendido })),
+    [porCanal]
+  )
+  const barrasMedioPago = useMemo(() => porMedioPago.map((m) => ({ etiqueta: m.medio_pago, valor: m.total_vendido })), [porMedioPago])
+  const barrasCategoria = useMemo(
+    () =>
+      porCategoria
+        .slice()
+        .sort((a, b) => b.total_vendido - a.total_vendido)
+        .slice(0, 8)
+        .map((c) => ({ etiqueta: c.categoria, valor: c.total_vendido })),
+    [porCategoria]
+  )
 
   function imprimir() {
     window.print()
@@ -176,10 +244,12 @@ export function ReportesPage() {
         <div className="kpi">
           <span>Total vendido</span>
           <strong>{formatMoney(totales.total_vendido)}</strong>
+          <Variacion actual={totales.total_vendido} anterior={anterior.total_vendido} />
         </div>
         <div className="kpi">
           <span>Ganancia</span>
           <strong>{formatMoney(totales.ganancia)}</strong>
+          <Variacion actual={totales.ganancia} anterior={anterior.ganancia} />
         </div>
         <div className="kpi">
           <span>Margen</span>
@@ -188,10 +258,12 @@ export function ReportesPage() {
         <div className="kpi">
           <span>Cantidad de ventas</span>
           <strong>{cantidadVentas}</strong>
+          <Variacion actual={cantidadVentas} anterior={anterior.cantidad_ventas} />
         </div>
         <div className="kpi">
           <span>Ticket promedio</span>
           <strong>{formatMoney(ticketPromedio)}</strong>
+          <Variacion actual={ticketPromedio} anterior={anterior.ticket_promedio} />
         </div>
       </section>
       {productoTop && (
@@ -256,6 +328,7 @@ export function ReportesPage() {
 
       {tab === 'canal' && (
         <div className="caja-tab-panel">
+          <BarrasComparativas filas={barrasCanal} />
           <table>
             <thead>
               <tr>
@@ -286,6 +359,7 @@ export function ReportesPage() {
 
       {tab === 'medioPago' && (
         <div className="caja-tab-panel">
+          <BarrasComparativas filas={barrasMedioPago} />
           <table>
             <thead>
               <tr>
@@ -346,6 +420,7 @@ export function ReportesPage() {
 
       {tab === 'categoria' && (
         <div className="caja-tab-panel">
+          <BarrasComparativas filas={barrasCategoria} />
           <table>
             <thead>
               <tr>
