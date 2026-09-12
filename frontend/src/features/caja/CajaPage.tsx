@@ -154,13 +154,15 @@ export function CajaPage() {
   }
 
   async function cerrarCaja() {
-    if (!caja) return
+    if (!caja || !usuario) return
     setError(null)
     const monto = Number(montoFinal)
     if (Number.isNaN(monto) || monto < 0) {
       setError('Ingresá el monto contado válido')
       return
     }
+    const confirmado = window.confirm(`¿Confirmás que ${usuario.nombre} está cerrando la caja?`)
+    if (!confirmado) return
     const res = await api.caja.cerrar(caja.id, monto, usuario!.id, comentarioCierre)
     if (!res.ok) {
       setError(res.error ?? 'No se pudo cerrar la caja')
