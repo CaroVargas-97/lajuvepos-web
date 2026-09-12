@@ -3,13 +3,20 @@ import { prisma } from '../prisma.js'
 
 const EPSILON = 0.01
 
+// "Pasta del día" cambia de sabor y de precio a diario según lo que se cocine o pida
+// el cliente, así que es el único producto donde se acepta el precio que manda el
+// cajero (con una nota describiendo qué es ese día). Todo el resto de los productos
+// sigue tomando el precio siempre de la base, para que no se pueda manipular llamando
+// directo a la API.
+const esPastaDelDia = (nombre: string) => nombre.trim().toLowerCase() === 'pasta del dia'
+
 export async function crear(req: Request, res: Response) {
   const { cajaId, usuarioId, canal, clienteId, items, pagos, descuento } = req.body as {
     cajaId: number
     usuarioId: number
     canal: 'mostrador' | 'pedidos_ya' | 'rappi'
     clienteId: number | null
-    items: { productoId: number; cantidad: number; precioUnitario: number }[]
+    items: { productoId: number; cantidad: number; precioUnitario: number; nota?: string }[]
     pagos: { medioPago: string; tarjeta: string | null; monto: number }[]
     descuento: number
   }
@@ -25,15 +32,19 @@ export async function crear(req: Request, res: Response) {
     const prod = productos.find((p) => p.id === item.productoId)
     if (!prod) return res.json({ ok: false, error: `Producto ${item.productoId} no encontrado` })
     if (!(item.cantidad > 0)) return res.json({ ok: false, error: 'Cantidad inválida' })
+    if (esPastaDelDia(prod.nombre) && !(Number.isFinite(item.precioUnitario) && item.precioUnitario > 0)) {
+      return res.json({ ok: false, error: 'Ingresá un precio válido para Pasta del día' })
+    }
     if (Number(prod.stockActual) < item.cantidad) {
       return res.json({ ok: false, error: 'Stock insuficiente para completar la venta' })
     }
   }
 
-  // El precio se toma siempre del producto en la base, nunca de lo que mande el cliente,
-  // para que no se pueda manipular el precio de venta llamando directo a la API.
-  const precioReal = (productoId: number) => Number(productos.find((p) => p.id === productoId)!.precioVenta)
-  const subtotalBruto = items.reduce((acc, i) => acc + i.cantidad * precioReal(i.productoId), 0)
+  const precioEfectivo = (item: { productoId: number; precioUnitario: number }) => {
+    const prod = productos.find((p) => p.id === item.productoId)!
+    return esPastaDelDia(prod.nombre) ? item.precioUnitario : Number(prod.precioVenta)
+  }
+  const subtotalBruto = items.reduce((acc, i) => acc + i.cantidad * precioEfectivo(i), 0)
   const desc = descuento > 0 ? Math.min(descuento, subtotalBruto) : 0
   const total = subtotalBruto - desc
   const totalPagos = pagos.reduce((acc, p) => acc + p.monto, 0)
@@ -61,7 +72,7 @@ export async function crear(req: Request, res: Response) {
 
     for (const item of items) {
       const prod = productos.find((p) => p.id === item.productoId)!
-      const precioUnitario = precioReal(item.productoId)
+      const precioUnitario = precioEfectivo(item)
       const subtotal = item.cantidad * precioUnitario
 
       await tx.ventaItem.create({
@@ -71,7 +82,8 @@ export async function crear(req: Request, res: Response) {
           cantidad: item.cantidad,
           precioUnitario,
           costoUnitario: prod.costo,
-          subtotal
+          subtotal,
+          nota: item.nota?.trim() || null
         }
       })
 
