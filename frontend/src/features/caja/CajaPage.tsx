@@ -26,7 +26,7 @@ interface VentaDeCaja {
 
 interface DetalleVenta {
   venta: { id: number; fecha: string; total: number; medio_pago: string; canal: string }
-  items: { producto_nombre: string; cantidad: number; precio_unitario: number; subtotal: number }[]
+  items: { producto_nombre: string; cantidad: number; precio_unitario: number; subtotal: number; nota: string | null }[]
   pagos: { medio_pago: string; tarjeta: string | null; monto: number }[]
 }
 
@@ -459,7 +459,10 @@ export function CajaPage() {
                             <tbody>
                               {detalleVenta.items.map((it, idx) => (
                                 <tr key={idx}>
-                                  <td>{it.producto_nombre}</td>
+                                  <td>
+                                    {it.producto_nombre}
+                                    {it.nota && <small> — {it.nota}</small>}
+                                  </td>
                                   <td>{it.cantidad}</td>
                                   <td>{formatMoney(it.precio_unitario)}</td>
                                   <td>{formatMoney(it.subtotal)}</td>
