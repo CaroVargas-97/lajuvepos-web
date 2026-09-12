@@ -54,6 +54,8 @@ export function VentasPage() {
   const [descuento, setDescuento] = useState('0')
   const [pesoTexto, setPesoTexto] = useState<Record<number, string>>({})
   const [unidadPeso, setUnidadPeso] = useState<Record<number, 'kg' | 'g'>>({})
+  const [precioTexto, setPrecioTexto] = useState<Record<number, string>>({})
+  const [notaTexto, setNotaTexto] = useState<Record<number, string>>({})
 
   async function cargar() {
     const [prods, cajaActual, cli] = await Promise.all([
@@ -70,7 +72,7 @@ export function VentasPage() {
     cargar()
   }, [])
 
-  const subtotalBruto = useMemo(() => carrito.reduce((acc, i) => acc + i.cantidad * i.producto.precio_venta, 0), [carrito])
+  const subtotalBruto = useMemo(() => carrito.reduce((acc, i) => acc + i.cantidad * precioEfectivo(i), 0), [carrito, precioTexto])
   const descuentoNum = Math.min(Number(descuento) || 0, subtotalBruto)
   const total = Math.max(subtotalBruto - descuentoNum, 0)
 
@@ -124,6 +126,20 @@ export function VentasPage() {
     return producto.unidad.toLowerCase() === 'kg'
   }
 
+  // "Pasta del día" cambia de sabor y de precio según lo que se cocine o pida el
+  // cliente, así que es el único producto donde se puede escribir qué es y ajustar
+  // el precio al momento de vender.
+  function esPastaDelDia(producto: Producto) {
+    return producto.nombre.trim().toLowerCase() === 'pasta del dia'
+  }
+
+  function precioEfectivo(item: CarritoItem) {
+    if (!esPastaDelDia(item.producto)) return item.producto.precio_venta
+    const texto = precioTexto[item.producto.id]
+    const valor = Number(texto)
+    return texto && Number.isFinite(valor) && valor >= 0 ? valor : 0
+  }
+
   function agregarProducto(producto: Producto) {
     setMensaje(null)
     setCarrito((prev) => {
@@ -136,6 +152,10 @@ export function VentasPage() {
         setPesoTexto((g) => ({ ...g, [producto.id]: '' }))
         setUnidadPeso((u) => ({ ...u, [producto.id]: 'kg' }))
         return [...prev, { producto, cantidad: 0 }]
+      }
+      if (esPastaDelDia(producto)) {
+        setPrecioTexto((p) => ({ ...p, [producto.id]: String(producto.precio_venta) }))
+        setNotaTexto((n) => ({ ...n, [producto.id]: '' }))
       }
       return [...prev, { producto, cantidad: 1 }]
     })
@@ -171,6 +191,14 @@ export function VentasPage() {
       const { [productoId]: _quitado, ...resto } = prev
       return resto
     })
+    setPrecioTexto((prev) => {
+      const { [productoId]: _quitado, ...resto } = prev
+      return resto
+    })
+    setNotaTexto((prev) => {
+      const { [productoId]: _quitado, ...resto } = prev
+      return resto
+    })
   }
 
   async function confirmarVenta() {
@@ -181,6 +209,10 @@ export function VentasPage() {
     if (!carrito.length) return
     if (carrito.some((i) => i.cantidad <= 0)) {
       setMensaje('Completá el peso de todos los productos del carrito.')
+      return
+    }
+    if (carrito.some((i) => esPastaDelDia(i.producto) && precioEfectivo(i) <= 0)) {
+      setMensaje('Ingresá un precio válido para Pasta del día.')
       return
     }
     if (Math.abs(restante) > 0.01) {
@@ -201,7 +233,12 @@ export function VentasPage() {
       usuarioId: usuario!.id,
       canal,
       clienteId: clienteId === '' ? null : clienteId,
-      items: carrito.map((i) => ({ productoId: i.producto.id, cantidad: i.cantidad, precioUnitario: i.producto.precio_venta })),
+      items: carrito.map((i) => ({
+        productoId: i.producto.id,
+        cantidad: i.cantidad,
+        precioUnitario: precioEfectivo(i),
+        nota: esPastaDelDia(i.producto) ? notaTexto[i.producto.id] || undefined : undefined
+      })),
       pagos: pagos.map((p) => ({
         medioPago: p.medioPago,
         tarjeta: esConProveedor(p.medioPago) && p.tarjeta ? p.tarjeta : null,
@@ -219,6 +256,8 @@ export function VentasPage() {
     setCarrito([])
     setPesoTexto({})
     setUnidadPeso({})
+    setPrecioTexto({})
+    setNotaTexto({})
     setPagos([{ medioPago: 'efectivo', tarjeta: '', monto: '0' }])
     setDescuento('0')
     cargar()
@@ -277,9 +316,19 @@ export function VentasPage() {
         {carrito.length === 0 && <p>Agregá productos desde la izquierda.</p>}
         <ul className="carrito-lista">
           {carrito.map((item) => (
-            <li key={item.producto.id}>
+            <li key={item.producto.id} className={esPastaDelDia(item.producto) ? 'item-pasta-del-dia' : ''}>
               <span className="nombre">{item.producto.nombre}</span>
-              {esPorKilo(item.producto) ? (
+              {esPastaDelDia(item.producto) ? (
+                <input
+                  className="cantidad-gramos"
+                  type="number"
+                  min={0}
+                  step="any"
+                  placeholder="precio"
+                  value={precioTexto[item.producto.id] ?? ''}
+                  onChange={(e) => setPrecioTexto((p) => ({ ...p, [item.producto.id]: e.target.value }))}
+                />
+              ) : esPorKilo(item.producto) ? (
                 <div className="peso-input">
                   <input
                     className="cantidad-gramos"
@@ -317,10 +366,18 @@ export function VentasPage() {
                   onChange={(e) => cambiarCantidad(item.producto.id, Number(e.target.value))}
                 />
               )}
-              <span className="subtotal">{formatMoney(item.cantidad * item.producto.precio_venta)}</span>
+              <span className="subtotal">{formatMoney(item.cantidad * precioEfectivo(item))}</span>
               <button className="link" onClick={() => quitarItem(item.producto.id)}>
                 quitar
               </button>
+              {esPastaDelDia(item.producto) && (
+                <input
+                  className="nota-item"
+                  placeholder="¿Qué es hoy? (ej: Ravioles de ricotta)"
+                  value={notaTexto[item.producto.id] ?? ''}
+                  onChange={(e) => setNotaTexto((n) => ({ ...n, [item.producto.id]: e.target.value }))}
+                />
+              )}
             </li>
           ))}
         </ul>
