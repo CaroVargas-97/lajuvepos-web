@@ -83,6 +83,8 @@ export function StockPage() {
   const [form, setForm] = useState(initialForm)
   const [error, setError] = useState<string | null>(null)
   const [edicion, setEdicion] = useState<EdicionProducto | null>(null)
+  const [busqueda, setBusqueda] = useState('')
+  const [filtroCategoria, setFiltroCategoria] = useState('')
 
   async function cargar() {
     setProductos(await api.productos.listar())
@@ -96,6 +98,12 @@ export function StockPage() {
     () => Array.from(new Set(productos.map((p) => p.categoria).filter((c): c is string => !!c))).sort((a, b) => a.localeCompare(b)),
     [productos]
   )
+
+  const productosFiltrados = productos.filter((p) => {
+    const coincideNombre = p.nombre.toLowerCase().includes(busqueda.toLowerCase())
+    const coincideCategoria = !filtroCategoria || p.categoria === filtroCategoria
+    return coincideNombre && coincideCategoria
+  })
 
   async function crearProducto(e: FormEvent) {
     e.preventDefault()
@@ -212,6 +220,23 @@ export function StockPage() {
       </form>
       {error && !edicion && <p className="error">{error}</p>}
 
+      <div className="form-inline">
+        <input
+          className="busqueda"
+          placeholder="Buscar producto..."
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+        />
+        <select value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)}>
+          <option value="">Todas las categorías</option>
+          {categoriasExistentes.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <table>
         <thead>
           <tr>
@@ -225,7 +250,7 @@ export function StockPage() {
           </tr>
         </thead>
         <tbody>
-          {productos.map((p) => (
+          {productosFiltrados.map((p) => (
             <tr key={p.id} className={p.stock_actual <= p.stock_minimo ? 'stock-bajo' : ''}>
               <td>{p.nombre}</td>
               <td>{p.categoria}</td>
@@ -242,6 +267,11 @@ export function StockPage() {
               </td>
             </tr>
           ))}
+          {productosFiltrados.length === 0 && (
+            <tr>
+              <td colSpan={7}>No hay productos que coincidan.</td>
+            </tr>
+          )}
         </tbody>
       </table>
 
